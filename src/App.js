@@ -2,14 +2,13 @@ import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
 
-// ── SOSTITUISCI CON LA TUA CONFIG FIREBASE (la aggiungiamo dopo) ──
 const firebaseConfig = {
-  apiKey: "FIREBASE_API_KEY",
-  authDomain: "FIREBASE_AUTH_DOMAIN",
-  projectId: "FIREBASE_PROJECT_ID",
-  storageBucket: "FIREBASE_STORAGE_BUCKET",
-  messagingSenderId: "FIREBASE_MESSAGING_SENDER_ID",
-  appId: "FIREBASE_APP_ID"
+  apiKey: "AIzaSyD2-KeCRUKY-REdevBFKO1J3x3bmN6zw78",
+  authDomain: "with-love-family.firebaseapp.com",
+  projectId: "with-love-family",
+  storageBucket: "with-love-family.firebasestorage.app",
+  messagingSenderId: "408909815434",
+  appId: "1:408909815434:web:b706c7dfcca2e3ae1c1773"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
