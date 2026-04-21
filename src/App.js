@@ -133,7 +133,7 @@ function TableView({ client, week }) {
             <th style={{ background:C.olive, color:C.white, padding:"8px 10px", textAlign:"left", minWidth:150, position:"sticky", left:0, zIndex:2, border:`1px solid ${C.border}` }}>ORARI</th>
             {/* Assestamento solo in settimana 1 */}
             {week===1 && <>
-              <th colSpan={3} style={{ background:C.olive, color:C.white, padding:"8px 10px", textAlign:"center", border:`1px solid ${C.border}` }}>Assestamento</th>
+              <th colSpan={2} style={{ background:C.olive, color:C.white, padding:"8px 10px", textAlign:"center", border:`1px solid ${C.border}` }}>Assestamento</th>
             </>}
             {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
               <th key={d} style={{ background:C.olive, color:C.white, padding:"8px 10px", textAlign:"center", border:`1px solid ${C.border}` }}>{d}</th>
@@ -144,7 +144,6 @@ function TableView({ client, week }) {
             {week===1 && <>
               <th style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>G1</th>
               <th style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>G2</th>
-              <th style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>Note</th>
             </>}
             {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
               <th key={d} style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>Note</th>
@@ -170,7 +169,6 @@ function TableView({ client, week }) {
                   {["Assestamento G1","Assestamento G2"].map(ag=>(
                     <td key={ag} style={{ padding:"4px 8px", border:`1px solid ${C.border}`, maxWidth:80, color:"#333" }}>{wkData[ag]?.[row.key]||""}</td>
                   ))}
-                  <td style={{ padding:"4px 8px", border:`1px solid ${C.border}`, color:"#333" }}>{wkData["Assestamento G1"]?.note||""}</td>
                 </>}
                 {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
                   [wkData[d]?.[row.key]||""].map((val,vi)=>(
