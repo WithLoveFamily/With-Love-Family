@@ -71,17 +71,17 @@ function InstallGuide({ platform }) {
   const [open, setOpen] = useState(false);
   const isApple = platform === "apple";
   const steps = isApple ? [
-    "1️⃣ Apri questo link da Safari (non Chrome!)",
-    "2️⃣ Tocca il pulsante Condividi 📤 in basso",
-    "3️⃣ Scorri e tocca "Aggiungi a schermata Home"",
-    "4️⃣ Tocca "Aggiungi" in alto a destra",
-    "✅ L'app apparirà come icona sul tuo iPhone!"
+    "1. Apri questo link da Safari (non Chrome!)",
+    "2. Tocca il pulsante Condividi in basso",
+    "3. Scorri e tocca 'Aggiungi a schermata Home'",
+    "4. Tocca 'Aggiungi' in alto a destra",
+    "✅ L'app apparira' come icona sul tuo iPhone!"
   ] : [
-    "1️⃣ Apri questo link da Chrome",
-    "2️⃣ Tocca i 3 puntini ⋮ in alto a destra",
-    "3️⃣ Tocca "Aggiungi a schermata Home"",
-    "4️⃣ Tocca "Aggiungi" per confermare",
-    "✅ L'app apparirà come icona sul tuo Android!"
+    "1. Apri questo link da Chrome",
+    "2. Tocca i 3 puntini in alto a destra",
+    "3. Tocca 'Aggiungi a schermata Home'",
+    "4. Tocca 'Aggiungi' per confermare",
+    "✅ L'app apparira' come icona sul tuo Android!"
   ];
   return (
     <div style={{ position:"relative" }}>
