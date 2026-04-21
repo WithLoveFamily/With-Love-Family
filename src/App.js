@@ -103,18 +103,16 @@ function ExpandableNote({ value, onChange, sectionKey, dayKey, isConsultant }) {
         fieldKey={sectionKey+"__NOTE_CLIENTE"}
         label="📝 Note cliente" color="blue"
         placeholder={isConsultant?"—":"Scrivi le tue note..."}
-        readOnly={isConsultant}
+        readOnly={false}
       />
-      {isConsultant && (
-        <NoteBox
-          value={value?.[sectionKey+"__NOTE_CONSULENTE"]||""}
-          onChange={onChange} dayKey={dayKey}
-          fieldKey={sectionKey+"__NOTE_CONSULENTE"}
-          label="✍️ Note consulente" color="gold"
-          placeholder="Aggiungi nota consulente..."
-          readOnly={false}
-        />
-      )}
+      <NoteBox
+        value={value?.[sectionKey+"__NOTE_CONSULENTE"]||""}
+        onChange={onChange} dayKey={dayKey}
+        fieldKey={sectionKey+"__NOTE_CONSULENTE"}
+        label="✍️ Note consulente" color="gold"
+        placeholder={isConsultant?"Aggiungi nota consulente...":"—"}
+        readOnly={!isConsultant}
+      />
     </div>
   );
 }
