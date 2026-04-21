@@ -67,7 +67,43 @@ function Input({ value, onChange, placeholder, multiline }) {
   return multiline ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}} /> : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s} />;
 }
 
-function NoteBox({ value, onChange, dayKey, fieldKey, label, color, placeholder, readOnly }) {
+function InstallGuide({ platform }) {
+  const [open, setOpen] = useState(false);
+  const isApple = platform === "apple";
+  const steps = isApple ? [
+    "1️⃣ Apri questo link da Safari (non Chrome!)",
+    "2️⃣ Tocca il pulsante Condividi 📤 in basso",
+    "3️⃣ Scorri e tocca "Aggiungi a schermata Home"",
+    "4️⃣ Tocca "Aggiungi" in alto a destra",
+    "✅ L'app apparirà come icona sul tuo iPhone!"
+  ] : [
+    "1️⃣ Apri questo link da Chrome",
+    "2️⃣ Tocca i 3 puntini ⋮ in alto a destra",
+    "3️⃣ Tocca "Aggiungi a schermata Home"",
+    "4️⃣ Tocca "Aggiungi" per confermare",
+    "✅ L'app apparirà come icona sul tuo Android!"
+  ];
+  return (
+    <div style={{ position:"relative" }}>
+      <button onClick={()=>setOpen(!open)} style={{ background: isApple?"#555":C.green, color:C.white, border:"none", borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+        {isApple?"🍎 App Apple":"🤖 App Android"}
+      </button>
+      {open && (
+        <div style={{ position:"absolute", right:0, top:36, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:16, width:260, boxShadow:"0 4px 20px #0002", zIndex:100 }}>
+          <div style={{ fontWeight:700, color:isApple?"#555":C.green, marginBottom:10, fontSize:13 }}>
+            {isApple?"🍎 Installa su iPhone/iPad":"🤖 Installa su Android"}
+          </div>
+          {steps.map((s,i)=>(
+            <div key={i} style={{ fontSize:13, color:C.dark, marginBottom:8, lineHeight:1.5 }}>{s}</div>
+          ))}
+          <div onClick={()=>setOpen(false)} style={{ textAlign:"right", fontSize:12, color:C.blue, cursor:"pointer", marginTop:8 }}>✕ Chiudi</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
   const [expanded, setExpanded] = useState(false);
   const preview = value?.slice(0,80);
   const isLong = value?.length > 80;
@@ -250,6 +286,13 @@ function ClientView({ client, onSave }) {
     <div style={{ maxWidth:700, margin:"0 auto", minHeight:"100vh", background:C.white }}>
       <Header title={`Ciao ${client.name}! 👶`} sub="Scheda Monitoraggio Percorso Sonno" />
       <div style={{ padding:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8, gap:8, flexWrap:"wrap" }}>
+          <Btn small color={C.blue} onClick={()=>window.location.reload()}>🔄 Aggiorna dati</Btn>
+          <div style={{ display:"flex", gap:8 }}>
+            <InstallGuide platform="apple" />
+            <InstallGuide platform="android" />
+          </div>
+        </div>
         {client.papa && <div style={{ fontSize:14, color:"#555", marginBottom:4 }}>👨 Papà: <strong>{client.papa}</strong></div>}
         <div style={{ background:C.blueLight, borderRadius:8, padding:12, fontSize:13, color:C.dark, marginBottom:16, lineHeight:1.6 }}>
           📝 Compilare le schede entro la fine della giornata, aggiungendo l'addormentamento serale prima di andare a dormire.<br/><em>Utilizzare le tabelle durante la mini consulenza se avete bisogno di aiuto.</em>
