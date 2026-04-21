@@ -121,7 +121,6 @@ function TableView({ client, week }) {
   SECTIONS.forEach(sec => {
     rows.push({ type:"header", label: sec.label.replace(/^\S+\s/,""), key: sec.key });
     sec.fields.forEach(f => rows.push({ type:"field", label: f, key: sec.key+"__"+f }));
-    if (NOTE_SECTIONS.includes(sec.key)) rows.push({ type:"field", label:"📝 Note sezione", key: sec.key+"__NOTE_SEZIONE" });
   });
 
   const headerBg = { mattina:"#8B7355", pomeriggio:"#6b8cae", pisolino_extra:"#7a7a2a", sera:"#8B7355", notte:"#4a5a6a" };
@@ -276,12 +275,32 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
     );
   }
 
-  // DETAIL VIEW
+  // DETAIL VIEW – editabile per il consulente
   if (view==="detail" && selected) {
     const client = clients.find(c=>c.id===selected.id)||selected;
     const days = week===1?DAYS_W1:DAYS_W2;
-    const wkData = client["week"+week];
     const baseUrl = window.location.origin+window.location.pathname;
+
+    function handleConsultantChange(dayKey, field, val) {
+      const wk="week"+week;
+      const updated = {
+        ...client,
+        [wk]: {
+          ...client[wk],
+          [dayKey]: { ...client[wk][dayKey], [field]: val }
+        }
+      };
+      onUpdateClient(updated);
+    }
+
+    async function handleConsultantSave() {
+      await onUpdateClient(client);
+      setNoteSaved(true);
+      setTimeout(()=>setNoteSaved(false),2500);
+    }
+
+    const wkData = client["week"+week];
+
     return (
       <div style={{ maxWidth:900, margin:"0 auto", minHeight:"100vh", background:C.white }}>
         <Header title={`📋 ${client.name}`} sub={`Cliente dal ${client.createdAt}${client.papa?" · Papà: "+client.papa:""}`} />
@@ -294,40 +313,24 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
             🔗 <strong>Link cliente:</strong> <span style={{ color:C.blue, wordBreak:"break-all" }}>{baseUrl}?client={client.link}</span>
             <Btn small color={C.gold} onClick={()=>navigator.clipboard?.writeText(baseUrl+"?client="+client.link)}>📋 Copia</Btn>
           </div>
+
+          <div style={{ background:"#e8f5e9", border:"1px solid #4caf50", borderRadius:8, padding:10, marginBottom:12, fontSize:13 }}>
+            ✏️ <strong>Modalità consulente:</strong> puoi modificare direttamente i campi di ogni giorno e salvare.
+          </div>
+
           <div style={{ display:"flex", gap:8, marginBottom:16 }}>
             {[1,2].map(w=>(<button key={w} onClick={()=>handleWeekChange(w)} style={{ flex:1, padding:"10px 0", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:C.border, color:week===w?C.white:C.dark, fontWeight:600 }}>Settimana {w} {w===1?"(G1-7)":"(G8-14)"}</button>))}
           </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:16 }}>
             {days.map(d=>(<button key={d} onClick={()=>setActiveDay(d)} style={{ padding:"6px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, background:activeDay===d?C.blue:C.gray, color:activeDay===d?C.white:C.dark, fontWeight:activeDay===d?700:400 }}>{d}</button>))}
           </div>
-          <div style={{ marginBottom:20 }}>
-            <div style={{ fontWeight:700, color:C.dark, marginBottom:8 }}>📊 Dati compilati – {activeDay}:</div>
-            <div style={{ background:C.gray, borderRadius:8, padding:10, marginBottom:8, fontSize:13 }}>
-              <strong>Data:</strong> {wkData[activeDay]?.date||"—"} &nbsp;|&nbsp; <strong>Note:</strong> {wkData[activeDay]?.note||"—"}
-            </div>
-            {SECTIONS.map(sec=>(
-              <div key={sec.key} style={{ marginBottom:10, background:C.blueLight, borderRadius:8, padding:12 }}>
-                <div style={{ fontWeight:700, color:C.blue, marginBottom:6 }}>{sec.label}</div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                  {sec.fields.map(f=>{
-                    const val=wkData[activeDay]?.[sec.key+"__"+f];
-                    return <div key={f} style={{ fontSize:13 }}><span style={{ color:"#888" }}>{f}: </span><span style={{ fontWeight:600 }}>{val||"—"}</span></div>;
-                  })}
-                </div>
-                {NOTE_SECTIONS.includes(sec.key) && wkData[activeDay]?.[sec.key+"__NOTE_SEZIONE"] && (
-                  <div style={{ marginTop:8, background:"#fff8e1", borderRadius:6, padding:8, fontSize:13, borderLeft:`3px solid ${C.gold}` }}>
-                    <strong style={{ color:C.gold }}>📝 Note:</strong> {wkData[activeDay][sec.key+"__NOTE_SEZIONE"]}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div style={{ background:"#fff8e1", border:`1px solid ${C.gold}`, borderRadius:8, padding:16 }}>
-            <div style={{ fontWeight:700, color:C.gold, marginBottom:8 }}>✍️ Le mie note / migliorie – Settimana {week}:</div>
-            <Input value={note} onChange={setNote} placeholder="Scrivi qui le tue osservazioni..." multiline />
-            <div style={{ textAlign:"right", marginTop:8 }}>
-              <Btn onClick={saveNote} color={noteSaved?C.green:C.gold} small>{noteSaved?"✓ Salvato!":"Salva nota"}</Btn>
-            </div>
+
+          <DayForm dayKey={activeDay} data={wkData[activeDay]} onChange={handleConsultantChange} />
+
+          <div style={{ textAlign:"center", marginTop:16 }}>
+            <Btn onClick={handleConsultantSave} color={noteSaved?C.green:C.gold}>
+              {noteSaved?"✓ Salvato!":"💾 Salva modifiche"}
+            </Btn>
           </div>
         </div>
       </div>
