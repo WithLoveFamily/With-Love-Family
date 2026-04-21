@@ -67,21 +67,26 @@ function Input({ value, onChange, placeholder, multiline }) {
   return multiline ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}} /> : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s} />;
 }
 
-function ExpandableNote({ value, onChange, sectionKey, dayKey }) {
+function NoteBox({ value, onChange, dayKey, fieldKey, label, color, placeholder, readOnly }) {
   const [expanded, setExpanded] = useState(false);
   const preview = value?.slice(0,80);
   const isLong = value?.length > 80;
   return (
-    <div style={{ marginTop:10, background:"#fff8e1", borderRadius:8, padding:10, border:`1px solid ${C.gold}` }}>
-      <div style={{ fontSize:12, fontWeight:700, color:C.gold, marginBottom:6 }}>📝 Note sezione</div>
+    <div style={{ flex:1, background: color==="gold"?"#fff8e1":"#eef4fb", borderRadius:8, padding:10, border:`1px solid ${color==="gold"?C.gold:C.blue}` }}>
+      <div style={{ fontSize:12, fontWeight:700, color:color==="gold"?C.gold:C.blue, marginBottom:6 }}>{label}</div>
       {expanded ? (
         <>
-          <textarea value={value||""} onChange={e=>onChange(dayKey, sectionKey+"__NOTE_SEZIONE", e.target.value)} placeholder="Scrivi le tue note qui..." rows={4} style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px", fontSize:13, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box" }} />
+          <textarea
+            value={value||""} readOnly={readOnly}
+            onChange={e=>!readOnly&&onChange(dayKey, fieldKey, e.target.value)}
+            placeholder={readOnly?"—":placeholder} rows={3}
+            style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px", fontSize:13, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", background: readOnly?"#f5f5f5":C.white }}
+          />
           <span onClick={()=>setExpanded(false)} style={{ fontSize:12, color:C.blue, cursor:"pointer", marginTop:4, display:"inline-block" }}>▲ Chiudi</span>
         </>
       ) : (
         <div onClick={()=>setExpanded(true)} style={{ cursor:"pointer" }}>
-          <div style={{ fontSize:13, color:value?C.dark:"#aaa", lineHeight:1.5 }}>{value?(isLong?preview+"...":value):"Tocca per aggiungere note..."}</div>
+          <div style={{ fontSize:13, color:value?C.dark:"#aaa", lineHeight:1.5 }}>{value?(isLong?preview+"...":value):placeholder}</div>
           {isLong && <span style={{ fontSize:12, color:C.blue, marginTop:4, display:"inline-block" }}>▼ Leggi tutto</span>}
         </div>
       )}
@@ -89,7 +94,32 @@ function ExpandableNote({ value, onChange, sectionKey, dayKey }) {
   );
 }
 
-function DayForm({ dayKey, data, onChange }) {
+function ExpandableNote({ value, onChange, sectionKey, dayKey, isConsultant }) {
+  return (
+    <div style={{ marginTop:10, display:"flex", gap:8 }}>
+      <NoteBox
+        value={value?.[sectionKey+"__NOTE_CLIENTE"]||""}
+        onChange={onChange} dayKey={dayKey}
+        fieldKey={sectionKey+"__NOTE_CLIENTE"}
+        label="📝 Note cliente" color="blue"
+        placeholder={isConsultant?"—":"Scrivi le tue note..."}
+        readOnly={isConsultant}
+      />
+      {isConsultant && (
+        <NoteBox
+          value={value?.[sectionKey+"__NOTE_CONSULENTE"]||""}
+          onChange={onChange} dayKey={dayKey}
+          fieldKey={sectionKey+"__NOTE_CONSULENTE"}
+          label="✍️ Note consulente" color="gold"
+          placeholder="Aggiungi nota consulente..."
+          readOnly={false}
+        />
+      )}
+    </div>
+  );
+}
+
+function DayForm({ dayKey, data, onChange, isConsultant }) {
   return (
     <div>
       <div style={{ display:"flex", gap:8, marginBottom:12 }}>
@@ -104,7 +134,7 @@ function DayForm({ dayKey, data, onChange }) {
               <div key={f}><label style={{ fontSize:12, color:"#555" }}>{f}</label><Input value={data[sec.key+"__"+f]||""} onChange={v=>onChange(dayKey,sec.key+"__"+f,v)} placeholder="—" /></div>
             ))}
           </div>
-          {NOTE_SECTIONS.includes(sec.key) && <ExpandableNote value={data[sec.key+"__NOTE_SEZIONE"]||""} onChange={onChange} sectionKey={sec.key} dayKey={dayKey} />}
+          {NOTE_SECTIONS.includes(sec.key) && <ExpandableNote value={data} onChange={onChange} sectionKey={sec.key} dayKey={dayKey} isConsultant={isConsultant} />}
         </div>
       ))}
     </div>
@@ -194,6 +224,7 @@ function ClientView({ client, onSave }) {
   const [activeDay, setActiveDay] = useState(days[0]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showTable, setShowTable] = useState(false);
 
   function handleChange(dayKey, field, val) {
     const wk="week"+week;
@@ -203,6 +234,19 @@ function ClientView({ client, onSave }) {
   async function handleSave() { setSaving(true); await onSave(data); setSaving(false); setSaved(true); setTimeout(()=>setSaved(false),2500); }
   const wkData = data["week"+week];
   const consultantNote = client.consultantNotes?.["week"+week]||"";
+
+  if (showTable) return (
+    <div style={{ minHeight:"100vh", background:C.white }}>
+      <Header title={`Ciao ${client.name}! 👶`} sub="Riepilogo settimana" />
+      <div style={{ padding:16 }}>
+        <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+          <Btn onClick={()=>setShowTable(false)} color={C.blue} small>← Torna alla scheda</Btn>
+          {[1,2].map(w=>(<button key={w} onClick={()=>setWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:C.border, color:week===w?C.white:C.dark, fontWeight:600, margin:4 }}>Settimana {w}</button>))}
+        </div>
+        <TableView client={{...client, week1:data.week1, week2:data.week2}} week={week} />
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ maxWidth:700, margin:"0 auto", minHeight:"100vh", background:C.white }}>
@@ -215,6 +259,9 @@ function ClientView({ client, onSave }) {
         <div style={{ display:"flex", gap:8, marginBottom:16 }}>
           {[1,2].map(w=>(<button key={w} onClick={()=>{setWeek(w);setActiveDay(w===1?DAYS_W1[0]:DAYS_W2[0]);}} style={{ flex:1, padding:"10px 0", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:C.border, color:week===w?C.white:C.dark, fontWeight:600 }}>Settimana {w} {w===1?"(Giorni 1-7)":"(Giorni 8-14)"}</button>))}
         </div>
+        <div style={{ textAlign:"right", marginBottom:12 }}>
+          <Btn small color={C.olive} onClick={()=>setShowTable(true)}>📊 Riepilogo settimana</Btn>
+        </div>
         {consultantNote && (
           <div style={{ background:"#fff8e1", border:`1px solid ${C.gold}`, borderRadius:8, padding:12, marginBottom:16 }}>
             <div style={{ fontWeight:700, color:C.gold, marginBottom:4 }}>💬 Nota della consulente:</div>
@@ -224,7 +271,7 @@ function ClientView({ client, onSave }) {
         <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:16 }}>
           {days.map(d=>(<button key={d} onClick={()=>setActiveDay(d)} style={{ padding:"6px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, background:activeDay===d?C.blue:C.gray, color:activeDay===d?C.white:C.dark, fontWeight:activeDay===d?700:400 }}>{d}</button>))}
         </div>
-        <DayForm dayKey={activeDay} data={wkData[activeDay]} onChange={handleChange} />
+        <DayForm dayKey={activeDay} data={wkData[activeDay]} onChange={handleChange} isConsultant={false} />
         <div style={{ textAlign:"center", marginTop:16 }}>
           <Btn onClick={handleSave} color={saved?C.green:C.gold} disabled={saving}>{saving?"Salvataggio...":saved?"✓ Salvato!":"💾 Salva scheda"}</Btn>
         </div>
@@ -323,7 +370,7 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
             {days.map(d=>(<button key={d} onClick={()=>setActiveDay(d)} style={{ padding:"6px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, background:activeDay===d?C.blue:C.gray, color:activeDay===d?C.white:C.dark, fontWeight:activeDay===d?700:400 }}>{d}</button>))}
           </div>
 
-          <DayForm dayKey={activeDay} data={wkData[activeDay]} onChange={handleConsultantChange} />
+          <DayForm dayKey={activeDay} data={wkData[activeDay]} onChange={handleConsultantChange} isConsultant={true} />
 
           <div style={{ textAlign:"center", marginTop:16 }}>
             <Btn onClick={handleConsultantSave} color={noteSaved?C.green:C.gold}>
