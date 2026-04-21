@@ -136,7 +136,7 @@ function TableView({ client, week }) {
               <th colSpan={3} style={{ background:C.olive, color:C.white, padding:"8px 10px", textAlign:"center", border:`1px solid ${C.border}` }}>Assestamento</th>
             </>}
             {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
-              <th key={d} colSpan={2} style={{ background:C.olive, color:C.white, padding:"8px 10px", textAlign:"center", border:`1px solid ${C.border}` }}>{d}</th>
+              <th key={d} style={{ background:C.olive, color:C.white, padding:"8px 10px", textAlign:"center", border:`1px solid ${C.border}` }}>{d}</th>
             ))}
           </tr>
           <tr>
@@ -146,9 +146,9 @@ function TableView({ client, week }) {
               <th style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>G2</th>
               <th style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>Note</th>
             </>}
-            {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(["Data","Note"].map(sub=>(
-              <th key={d+sub} style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>{sub}</th>
-            ))))}
+            {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
+              <th key={d} style={{ background:"#c8b87a", color:C.white, padding:"6px 8px", fontSize:11, border:`1px solid ${C.border}` }}>Note</th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -173,9 +173,9 @@ function TableView({ client, week }) {
                   <td style={{ padding:"4px 8px", border:`1px solid ${C.border}`, color:"#333" }}>{wkData["Assestamento G1"]?.note||""}</td>
                 </>}
                 {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
-                  [wkData[d]?.date, wkData[d]?.[row.key]||""].map((val,vi)=>(
+                  [wkData[d]?.[row.key]||""].map((val,vi)=>(
                     <td key={d+vi} style={{ padding:"4px 8px", border:`1px solid ${C.border}`, maxWidth:120, color:"#333", wordBreak:"break-word" }}>
-                      {vi===0 ? (wkData[d]?.date||"") : (wkData[d]?.[row.key]||"")}
+                      {wkData[d]?.[row.key]||""}
                     </td>
                   ))
                 ))}
