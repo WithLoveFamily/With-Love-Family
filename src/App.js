@@ -26,7 +26,7 @@ const SECTIONS = [
   { label: "🌙 NOTTE", key: "notte", fields: ["Risveglio 1 – Tempo sveglio/a","Risveglio 1 – Note","Risveglio 2 – Tempo sveglio/a","Risveglio 2 – Note","Risveglio 3 – Tempo sveglio/a","Risveglio 3 – Note","Risveglio 4 – Tempo sveglio/a","Risveglio 4 – Note","Risveglio 5 – Tempo sveglio/a","Risveglio 5 – Note","Risveglio 6 – Tempo sveglio/a","Risveglio 6 – Note","Risveglio 7 – Tempo sveglio/a","Risveglio 7 – Note","Sveglio/a alle","Sveglio/a definitivamente"] }
 ];
 
-const NOTE_SECTIONS = ["mattina","pomeriggio","pisolino_extra","sera"];
+const NOTE_SECTIONS = ["mattina","pomeriggio","pisolino_extra","sera","notte"];
 
 function emptyDays(days) {
   const data = {};
