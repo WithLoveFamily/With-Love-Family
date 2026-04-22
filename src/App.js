@@ -20,7 +20,7 @@ const DAYS_W2 = ["Giorno 8","Giorno 9","Giorno 10","Giorno 11","Giorno 12","Gior
 const NOTE_SECTIONS = ["mattina","pomeriggio","pisolino_extra","sera","notte"];
 
 const SECTIONS = [
-  { label:"MATTINA", key:"mattina", fields:["Svegliato/a","Dramatic w/up","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
+  { label:"MATTINA", key:"mattina", fields:["Svegliato/a","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
   { label:"POMERIGGIO", key:"pomeriggio", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino"] },
   { label:"PISOLINO EXTRA", key:"pisolino_extra", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Tot ore giorno"] },
   { label:"SERA", key:"sera", fields:["Cena alle","Stanco/a alle ore...","Inizio routine","Fine routine","Stanco/a da 1a10","Addormentato/a","Come","Posizione Stanza"] },
@@ -146,48 +146,50 @@ function NoteRow({ data, onChange, sectionKey, dayKey, isConsultant }) {
 }
 
 function CaroDiario({ data, onChange, dayKey, isConsultant }) {
-  const clienteVal = data["caro_diario__cliente"]||"";
+  const clienteVal = data["caro_diario__shared"]||"";
   const consulenteVal = data["caro_diario__consulente"]||"";
+
   return (
     <div style={{ marginTop:24, background:"linear-gradient(135deg,#fff8e1,#eef4fb)", borderRadius:12, padding:20, border:"2px solid "+C.gold }}>
       <div style={{ textAlign:"center", marginBottom:16 }}>
         <div style={{ fontFamily:"Georgia,serif", fontSize:20, color:C.gold, letterSpacing:1 }}>Caro Diario</div>
         <div style={{ fontSize:13, color:"#888", marginTop:4, fontStyle:"italic" }}>Raccontami le sensazioni che hai avuto in questa giornata</div>
       </div>
+
+      {/* Sezione cliente */}
       <div style={{ marginBottom:16 }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.dark, marginBottom:6 }}>La tua voce:</div>
-        <textarea
-          value={clienteVal}
-          onChange={e => onChange(dayKey, "caro_diario__cliente", e.target.value)}
-          placeholder="Scrivi qui come ti sei sentita oggi... puoi anche incollare un link!"
-          rows={4}
-          style={{ width:"100%", border:"1px solid "+C.border, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:"#000", lineHeight:1.6 }}
-        />
-        {clienteVal.length > 0 && (
-          <div style={{ fontSize:13, color:"#000", background:"#fff", borderRadius:6, padding:"8px 12px", marginTop:4, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
-            {renderLinks(clienteVal)}
-          </div>
-        )}
-      </div>
-      <div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.blue, marginBottom:6 }}>Nota consulente:</div>
+        <div style={{ fontSize:12, fontWeight:700, color:C.dark, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>✏️ La tua voce</div>
         {isConsultant ? (
-          <div>
-            <textarea
-              value={consulenteVal}
-              onChange={e => onChange(dayKey, "caro_diario__consulente", e.target.value)}
-              placeholder="Scrivi qui le tue osservazioni... puoi anche incollare un link!"
-              rows={4}
-              style={{ width:"100%", border:"1px solid "+C.blue, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:C.blue, lineHeight:1.6 }}
-            />
-            {consulenteVal.length > 0 && (
-              <div style={{ fontSize:13, color:C.blue, background:"#eef4fb", borderRadius:6, padding:"8px 12px", marginTop:4, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
-                {renderLinks(consulenteVal)}
-              </div>
-            )}
+          <div style={{ fontSize:14, color:"#000", background:"#fff", borderRadius:8, padding:"10px 12px", lineHeight:1.8, whiteSpace:"pre-wrap", minHeight:60, border:"1px solid "+C.border }}>
+            {clienteVal.length > 0 ? renderLinks(clienteVal) : <span style={{ color:"#aaa", fontStyle:"italic" }}>La cliente non ha ancora scritto nulla.</span>}
           </div>
         ) : (
-          <div style={{ fontSize:13, color:C.blue, background:"#eef4fb", borderRadius:8, padding:"10px 12px", lineHeight:1.8, whiteSpace:"pre-wrap", minHeight:40 }}>
+          <textarea
+            value={clienteVal}
+            onChange={e => onChange(dayKey, "caro_diario__shared", e.target.value)}
+            placeholder="Scrivi qui come ti sei sentita oggi... puoi anche incollare un link!"
+            rows={5}
+            style={{ width:"100%", border:"1px solid "+C.gold, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:"#000", lineHeight:1.6, background:"#fff" }}
+          />
+        )}
+      </div>
+
+      {/* Divisore */}
+      <div style={{ borderTop:"1px dashed "+C.gold, margin:"16px 0" }} />
+
+      {/* Sezione consulente */}
+      <div>
+        <div style={{ fontSize:12, fontWeight:700, color:C.blue, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>💙 In calce – Nota consulente</div>
+        {isConsultant ? (
+          <textarea
+            value={consulenteVal}
+            onChange={e => onChange(dayKey, "caro_diario__consulente", e.target.value)}
+            placeholder="Scrivi qui la tua nota in calce..."
+            rows={4}
+            style={{ width:"100%", border:"1px solid "+C.blue, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:C.blue, lineHeight:1.6, background:"#eef4fb" }}
+          />
+        ) : (
+          <div style={{ fontSize:14, color:C.blue, background:"#eef4fb", borderRadius:8, padding:"10px 12px", lineHeight:1.8, whiteSpace:"pre-wrap", minHeight:40, border:"1px solid "+C.blueLight }}>
             {consulenteVal.length > 0 ? renderLinks(consulenteVal) : <span style={{ color:"#aaa", fontStyle:"italic" }}>Nessuna nota della consulente ancora.</span>}
           </div>
         )}
