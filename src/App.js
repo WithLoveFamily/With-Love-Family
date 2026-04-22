@@ -40,6 +40,8 @@ function emptyDays(days) {
       data[d][k+"__NOTE_CLIENTE"] = "";
       data[d][k+"__NOTE_CONSULENTE"] = "";
     });
+    data[d]["caro_diario__cliente"] = "";
+    data[d]["caro_diario__consulente"] = "";
   });
   return data;
 }
@@ -143,7 +145,69 @@ function NoteRow({ data, onChange, sectionKey, dayKey, isConsultant }) {
   );
 }
 
-function DayForm({ dayKey, data, onChange, isConsultant }) {
+function CaroDiario({ data, onChange, dayKey, isConsultant }) {
+  const clienteVal = data["caro_diario__cliente"] || "";
+  const consulenteVal = data["caro_diario__consulente"] || "";
+
+  function renderWithLinks(text) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) =>
+      urlRegex.test(part)
+        ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color:C.blue, wordBreak:"break-all" }}>{part}</a>
+        : <span key={i}>{part}</span>
+    );
+  }
+
+  return (
+    <div style={{ marginTop:24, background:"linear-gradient(135deg,#fff8e1,#eef4fb)", borderRadius:12, padding:20, border:"2px solid "+C.gold }}>
+      <div style={{ textAlign:"center", marginBottom:16 }}>
+        <div style={{ fontFamily:"Georgia,serif", fontSize:20, color:C.gold, letterSpacing:1 }}>Caro Diario</div>
+        <div style={{ fontSize:13, color:"#888", marginTop:4, fontStyle:"italic" }}>Raccontami le sensazioni che hai avuto in questa giornata</div>
+      </div>
+
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.dark, marginBottom:6 }}>✏️ La tua voce:</div>
+        <textarea
+          value={clienteVal}
+          onChange={e=>onChange(dayKey,"caro_diario__cliente",e.target.value)}
+          placeholder="Scrivi qui come ti sei sentita oggi... puoi anche incollare un link!"
+          rows={4}
+          style={{ width:"100%", border:"1px solid "+C.border, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:"#000", lineHeight:1.6 }}
+        />
+        {clienteVal && (
+          <div style={{ fontSize:13, color:"#000", background:"#fff", borderRadius:6, padding:"8px 12px", marginTop:4, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
+            {renderWithLinks(clienteVal)}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.blue, marginBottom:6 }}>💙 Nota consulente:</div>
+        {isConsultant ? (
+          <>
+            <textarea
+              value={consulenteVal}
+              onChange={e=>onChange(dayKey,"caro_diario__consulente",e.target.value)}
+              placeholder="Scrivi qui le tue osservazioni... puoi anche incollare un link!"
+              rows={4}
+              style={{ width:"100%", border:"1px solid "+C.blue, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:C.blue, lineHeight:1.6 }}
+            />
+            {consulenteVal && (
+              <div style={{ fontSize:13, color:C.blue, background:"#eef4fb", borderRadius:6, padding:"8px 12px", marginTop:4, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
+                {renderWithLinks(consulenteVal)}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize:13, color:C.blue, background:"#eef4fb", borderRadius:8, padding:"10px 12px", lineHeight:1.8, whiteSpace:"pre-wrap", minHeight:40 }}>
+            {consulenteVal ? renderWithLinks(consulenteVal) : <span style={{ color:"#aaa", fontStyle:"italic" }}>Nessuna nota della consulente ancora.</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
   return (
     <div>
       <div style={{ display:"flex", gap:8, marginBottom:12 }}>
@@ -168,6 +232,7 @@ function DayForm({ dayKey, data, onChange, isConsultant }) {
           )}
         </div>
       ))}
+      <CaroDiario data={data} onChange={onChange} dayKey={dayKey} isConsultant={isConsultant} />
     </div>
   );
 }
