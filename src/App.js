@@ -20,26 +20,25 @@ const DAYS_W2 = ["Giorno 8","Giorno 9","Giorno 10","Giorno 11","Giorno 12","Gior
 const NOTE_SECTIONS = ["mattina","pomeriggio","pisolino_extra","sera","notte"];
 
 const SECTIONS = [
-  { label: "MATTINA", key: "mattina", fields: ["Svegliato/a","Dramatic w/up","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
-  { label: "POMERIGGIO", key: "pomeriggio", fields: ["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino"] },
-  { label: "PISOLINO EXTRA", key: "pisolino_extra", fields: ["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Tot ore giorno"] },
-  { label: "SERA", key: "sera", fields: ["Cena alle","Stanco/a alle ore...","Inizio routine","Fine routine","Stanco/a da 1a10","Addormentato/a","Come","Posizione Stanza"] },
-  { label: "NOTTE", key: "notte", fields: ["Risveglio 1 - Tempo sveglio/a","Risveglio 1 - Note","Risveglio 2 - Tempo sveglio/a","Risveglio 2 - Note","Risveglio 3 - Tempo sveglio/a","Risveglio 3 - Note","Risveglio 4 - Tempo sveglio/a","Risveglio 4 - Note","Risveglio 5 - Tempo sveglio/a","Risveglio 5 - Note","Risveglio 6 - Tempo sveglio/a","Risveglio 6 - Note","Risveglio 7 - Tempo sveglio/a","Risveglio 7 - Note","Sveglio/a alle","Sveglio/a definitivamente"] }
+  { label:"MATTINA", key:"mattina", fields:["Svegliato/a","Dramatic w/up","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
+  { label:"POMERIGGIO", key:"pomeriggio", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino"] },
+  { label:"PISOLINO EXTRA", key:"pisolino_extra", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Tot ore giorno"] },
+  { label:"SERA", key:"sera", fields:["Cena alle","Stanco/a alle ore...","Inizio routine","Fine routine","Stanco/a da 1a10","Addormentato/a","Come","Posizione Stanza"] },
+  { label:"NOTTE", key:"notte", fields:["Risveglio 1 - Tempo sveglio/a","Risveglio 1 - Note","Risveglio 2 - Tempo sveglio/a","Risveglio 2 - Note","Risveglio 3 - Tempo sveglio/a","Risveglio 3 - Note","Risveglio 4 - Tempo sveglio/a","Risveglio 4 - Note","Risveglio 5 - Tempo sveglio/a","Risveglio 5 - Note","Risveglio 6 - Tempo sveglio/a","Risveglio 6 - Note","Risveglio 7 - Tempo sveglio/a","Risveglio 7 - Note","Sveglio/a alle","Sveglio/a definitivamente"] }
 ];
 
-const C = { gold:"#b8960c", goldLight:"#f5e9b8", blue:"#6b8cae", blueLight:"#dde8f3", dark:"#2d2d2d", gray:"#f7f7f7", white:"#ffffff", border:"#e0e0e0", green:"#4caf50", red:"#e53935", olive:"#7a7a2a" };
+const C = {
+  gold:"#b8960c", goldLight:"#f5e9b8", blue:"#6b8cae", blueLight:"#dde8f3",
+  dark:"#2d2d2d", gray:"#f7f7f7", white:"#ffffff", border:"#e0e0e0",
+  green:"#4caf50", red:"#e53935", olive:"#7a7a2a"
+};
 
 function emptyDays(days) {
   const data = {};
   days.forEach(d => {
     data[d] = { date:"", note:"" };
-    SECTIONS.forEach(s => {
-      s.fields.forEach(f => { data[d][s.key+"__"+f] = ""; });
-    });
-    NOTE_SECTIONS.forEach(k => {
-      data[d][k+"__NOTE_CLIENTE"] = "";
-      data[d][k+"__NOTE_CONSULENTE"] = "";
-    });
+    SECTIONS.forEach(s => s.fields.forEach(f => { data[d][s.key+"__"+f] = ""; }));
+    NOTE_SECTIONS.forEach(k => { data[d][k+"__NOTE_CLIENTE"] = ""; data[d][k+"__NOTE_CONSULENTE"] = ""; });
     data[d]["caro_diario__cliente"] = "";
     data[d]["caro_diario__consulente"] = "";
   });
@@ -48,18 +47,16 @@ function emptyDays(days) {
 
 function emptyClient(name, papa) {
   return {
-    id: Date.now().toString(),
-    name, papa: papa||"",
+    id: Date.now().toString(), name, papa: papa||"",
     link: Math.random().toString(36).slice(2,10),
     createdAt: new Date().toLocaleDateString("it-IT"),
-    week1: emptyDays(DAYS_W1),
-    week2: emptyDays(DAYS_W2),
+    week1: emptyDays(DAYS_W1), week2: emptyDays(DAYS_W2)
   };
 }
 
 async function loadClients() {
-  try { const snap = await getDocs(collection(db,"clients")); return snap.docs.map(d=>d.data()); }
-  catch { return []; }
+  try { const snap = await getDocs(collection(db,"clients")); return snap.docs.map(d => d.data()); }
+  catch(e) { return []; }
 }
 async function saveClient(c) { await setDoc(doc(db,"clients",c.id), c); }
 async function removeClient(id) { await deleteDoc(doc(db,"clients",id)); }
@@ -75,9 +72,8 @@ function Header({ title, sub }) {
 }
 
 function Btn({ children, onClick, color, small, disabled }) {
-  const bg = color || C.gold;
   return (
-    <button onClick={onClick} disabled={disabled} style={{ background:disabled?"#ccc":bg, color:"#fff", border:"none", borderRadius:8, padding:small?"6px 14px":"10px 22px", fontSize:small?13:15, fontWeight:600, cursor:disabled?"default":"pointer", margin:4 }}>
+    <button onClick={onClick} disabled={disabled} style={{ background:disabled?"#ccc":(color||C.gold), color:"#fff", border:"none", borderRadius:8, padding:small?"6px 14px":"10px 22px", fontSize:small?13:15, fontWeight:600, cursor:disabled?"default":"pointer", margin:4 }}>
       {children}
     </button>
   );
@@ -86,8 +82,17 @@ function Btn({ children, onClick, color, small, disabled }) {
 function Input({ value, onChange, placeholder, multiline }) {
   const s = { width:"100%", border:"1px solid #e0e0e0", borderRadius:6, padding:"8px 10px", fontSize:14, background:"#fff", boxSizing:"border-box", fontFamily:"inherit" };
   return multiline
-    ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s, resize:"vertical"}} />
-    : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s} />;
+    ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s, resize:"vertical"}} />
+    : <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={s} />;
+}
+
+function renderLinks(text) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((p, i) =>
+    /^https?:\/\//.test(p)
+      ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" style={{ color:C.blue, wordBreak:"break-all" }}>{p}</a>
+      : <span key={i}>{p}</span>
+  );
 }
 
 function NoteBox({ value, onChange, dayKey, fieldKey, label, isGold, placeholder, readOnly }) {
@@ -104,16 +109,16 @@ function NoteBox({ value, onChange, dayKey, fieldKey, label, isGold, placeholder
         <div>
           <textarea
             value={value||""} readOnly={readOnly}
-            onChange={e=>{ if(!readOnly) onChange(dayKey, fieldKey, e.target.value); }}
-            placeholder={readOnly ? "—" : placeholder} rows={3}
+            onChange={e => { if(!readOnly) onChange(dayKey, fieldKey, e.target.value); }}
+            placeholder={readOnly?"—":placeholder} rows={3}
             style={{ width:"100%", border:"1px solid #e0e0e0", borderRadius:6, padding:"8px 10px", fontSize:13, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", background:readOnly?"#f5f5f5":"#fff" }}
           />
-          <span onClick={()=>setExpanded(false)} style={{ fontSize:12, color:C.blue, cursor:"pointer", marginTop:4, display:"inline-block" }}>chiudi</span>
+          <span onClick={() => setExpanded(false)} style={{ fontSize:12, color:C.blue, cursor:"pointer", marginTop:4, display:"inline-block" }}>chiudi</span>
         </div>
       ) : (
-        <div onClick={()=>setExpanded(true)} style={{ cursor:"pointer" }}>
+        <div onClick={() => setExpanded(true)} style={{ cursor:"pointer" }}>
           <div style={{ fontSize:13, color:(value&&value.length>0)?C.dark:"#aaa", lineHeight:1.5 }}>
-            {(value&&value.length>0) ? (isLong ? preview+"..." : value) : (readOnly ? "—" : placeholder)}
+            {(value&&value.length>0) ? (isLong ? preview+"..." : value) : (readOnly?"—":placeholder)}
           </div>
           {isLong && <span style={{ fontSize:12, color:C.blue, marginTop:4, display:"inline-block" }}>leggi tutto</span>}
         </div>
@@ -126,104 +131,88 @@ function NoteRow({ data, onChange, sectionKey, dayKey, isConsultant }) {
   return (
     <div style={{ marginTop:10, display:"flex", gap:8 }}>
       <NoteBox
-        value={data[sectionKey+"__NOTE_CLIENTE"]||""}
-        onChange={onChange} dayKey={dayKey}
-        fieldKey={sectionKey+"__NOTE_CLIENTE"}
-        label="Note cliente" isGold={false}
-        placeholder="Scrivi le tue note..."
-        readOnly={isConsultant ? false : false}
+        value={data[sectionKey+"__NOTE_CLIENTE"]||""} onChange={onChange}
+        dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CLIENTE"}
+        label="Note cliente" isGold={false} placeholder="Scrivi le tue note..." readOnly={false}
       />
       <NoteBox
-        value={data[sectionKey+"__NOTE_CONSULENTE"]||""}
-        onChange={onChange} dayKey={dayKey}
-        fieldKey={sectionKey+"__NOTE_CONSULENTE"}
+        value={data[sectionKey+"__NOTE_CONSULENTE"]||""} onChange={onChange}
+        dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CONSULENTE"}
         label="Note consulente" isGold={true}
-        placeholder={isConsultant ? "Aggiungi nota..." : "—"}
-        readOnly={!isConsultant}
+        placeholder={isConsultant?"Aggiungi nota...":"—"} readOnly={!isConsultant}
       />
     </div>
   );
 }
 
 function CaroDiario({ data, onChange, dayKey, isConsultant }) {
-  const clienteVal = data["caro_diario__cliente"] || "";
-  const consulenteVal = data["caro_diario__consulente"] || "";
-
-  function renderWithLinks(text) {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-    return parts.map((part, i) =>
-      urlRegex.test(part)
-        ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color:C.blue, wordBreak:"break-all" }}>{part}</a>
-        : <span key={i}>{part}</span>
-    );
-  }
-
+  const clienteVal = data["caro_diario__cliente"]||"";
+  const consulenteVal = data["caro_diario__consulente"]||"";
   return (
     <div style={{ marginTop:24, background:"linear-gradient(135deg,#fff8e1,#eef4fb)", borderRadius:12, padding:20, border:"2px solid "+C.gold }}>
       <div style={{ textAlign:"center", marginBottom:16 }}>
         <div style={{ fontFamily:"Georgia,serif", fontSize:20, color:C.gold, letterSpacing:1 }}>Caro Diario</div>
         <div style={{ fontSize:13, color:"#888", marginTop:4, fontStyle:"italic" }}>Raccontami le sensazioni che hai avuto in questa giornata</div>
       </div>
-
       <div style={{ marginBottom:16 }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.dark, marginBottom:6 }}>✏️ La tua voce:</div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.dark, marginBottom:6 }}>La tua voce:</div>
         <textarea
           value={clienteVal}
-          onChange={e=>onChange(dayKey,"caro_diario__cliente",e.target.value)}
+          onChange={e => onChange(dayKey, "caro_diario__cliente", e.target.value)}
           placeholder="Scrivi qui come ti sei sentita oggi... puoi anche incollare un link!"
           rows={4}
           style={{ width:"100%", border:"1px solid "+C.border, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:"#000", lineHeight:1.6 }}
         />
-        {clienteVal && (
+        {clienteVal.length > 0 && (
           <div style={{ fontSize:13, color:"#000", background:"#fff", borderRadius:6, padding:"8px 12px", marginTop:4, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
-            {renderWithLinks(clienteVal)}
+            {renderLinks(clienteVal)}
           </div>
         )}
       </div>
-
       <div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.blue, marginBottom:6 }}>💙 Nota consulente:</div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.blue, marginBottom:6 }}>Nota consulente:</div>
         {isConsultant ? (
-          <>
+          <div>
             <textarea
               value={consulenteVal}
-              onChange={e=>onChange(dayKey,"caro_diario__consulente",e.target.value)}
+              onChange={e => onChange(dayKey, "caro_diario__consulente", e.target.value)}
               placeholder="Scrivi qui le tue osservazioni... puoi anche incollare un link!"
               rows={4}
               style={{ width:"100%", border:"1px solid "+C.blue, borderRadius:8, padding:"10px 12px", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", color:C.blue, lineHeight:1.6 }}
             />
-            {consulenteVal && (
+            {consulenteVal.length > 0 && (
               <div style={{ fontSize:13, color:C.blue, background:"#eef4fb", borderRadius:6, padding:"8px 12px", marginTop:4, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
-                {renderWithLinks(consulenteVal)}
+                {renderLinks(consulenteVal)}
               </div>
             )}
-          </>
+          </div>
         ) : (
           <div style={{ fontSize:13, color:C.blue, background:"#eef4fb", borderRadius:8, padding:"10px 12px", lineHeight:1.8, whiteSpace:"pre-wrap", minHeight:40 }}>
-            {consulenteVal ? renderWithLinks(consulenteVal) : <span style={{ color:"#aaa", fontStyle:"italic" }}>Nessuna nota della consulente ancora.</span>}
+            {consulenteVal.length > 0 ? renderLinks(consulenteVal) : <span style={{ color:"#aaa", fontStyle:"italic" }}>Nessuna nota della consulente ancora.</span>}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+function DayForm({ dayKey, data, onChange, isConsultant }) {
   return (
     <div>
       <div style={{ display:"flex", gap:8, marginBottom:12 }}>
         <div style={{ flex:1 }}>
           <label style={{ fontSize:12, color:"#888" }}>Data</label>
-          <Input value={data.date||""} onChange={v=>onChange(dayKey,"date",v)} placeholder="gg/mm/aaaa" />
+          <Input value={data.date||""} onChange={v => onChange(dayKey,"date",v)} placeholder="gg/mm/aaaa" />
         </div>
       </div>
-      {SECTIONS.map(sec=>(
+      {SECTIONS.map(sec => (
         <div key={sec.key} style={{ marginBottom:16, background:C.gray, borderRadius:8, padding:12 }}>
           <div style={{ fontWeight:700, fontSize:14, color:C.blue, marginBottom:8 }}>{sec.label}</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            {sec.fields.map(f=>(
+            {sec.fields.map(f => (
               <div key={f}>
                 <label style={{ fontSize:12, color:"#555" }}>{f}</label>
-                <Input value={data[sec.key+"__"+f]||""} onChange={v=>onChange(dayKey,sec.key+"__"+f,v)} placeholder="—" />
+                <Input value={data[sec.key+"__"+f]||""} onChange={v => onChange(dayKey, sec.key+"__"+f, v)} placeholder="—" />
               </div>
             ))}
           </div>
@@ -252,28 +241,24 @@ function TableView({ client, week }) {
         <thead>
           <tr>
             <th style={{ background:C.olive, color:"#fff", padding:"8px 10px", textAlign:"left", minWidth:150, position:"sticky", left:0, zIndex:2, border:"1px solid #e0e0e0" }}>ORARI</th>
-            {week===1 && (
-              <th colSpan={2} style={{ background:C.olive, color:"#fff", padding:"8px 10px", textAlign:"center", border:"1px solid #e0e0e0" }}>Assestamento</th>
-            )}
-            {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
+            {week===1 && <th colSpan={2} style={{ background:C.olive, color:"#fff", padding:"8px 10px", textAlign:"center", border:"1px solid #e0e0e0" }}>Assestamento</th>}
+            {days.filter(d => !d.startsWith("Assestamento")).map(d => (
               <th key={d} style={{ background:C.olive, color:"#fff", padding:"8px 10px", textAlign:"center", border:"1px solid #e0e0e0" }}>{d}</th>
             ))}
           </tr>
           <tr>
             <th style={{ background:C.olive, color:"#fff", padding:"6px 10px", position:"sticky", left:0, zIndex:2, border:"1px solid #e0e0e0" }}></th>
-            {week===1 && (
-              <>
-                <th style={{ background:"#c8b87a", color:"#fff", padding:"6px 8px", fontSize:11, border:"1px solid #e0e0e0" }}>G1</th>
-                <th style={{ background:"#c8b87a", color:"#fff", padding:"6px 8px", fontSize:11, border:"1px solid #e0e0e0" }}>G2</th>
-              </>
-            )}
-            {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
+            {week===1 && <>
+              <th style={{ background:"#c8b87a", color:"#fff", padding:"6px 8px", fontSize:11, border:"1px solid #e0e0e0" }}>G1</th>
+              <th style={{ background:"#c8b87a", color:"#fff", padding:"6px 8px", fontSize:11, border:"1px solid #e0e0e0" }}>G2</th>
+            </>}
+            {days.filter(d => !d.startsWith("Assestamento")).map(d => (
               <th key={d} style={{ background:"#c8b87a", color:"#fff", padding:"6px 8px", fontSize:11, border:"1px solid #e0e0e0" }}>Note</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row,i)=>{
+          {rows.map((row, i) => {
             if(row.type==="header") {
               return (
                 <tr key={i}>
@@ -281,14 +266,14 @@ function TableView({ client, week }) {
                 </tr>
               );
             }
-            const bg = i%2===0?"#f0f4f8":"#fff";
+            const bg = i%2===0 ? "#f0f4f8" : "#fff";
             return (
               <tr key={i} style={{ background:bg }}>
                 <td style={{ padding:"4px 10px", fontWeight:500, color:C.dark, position:"sticky", left:0, background:bg, border:"1px solid #e0e0e0", whiteSpace:"nowrap" }}>{row.label}</td>
-                {week===1 && ["Assestamento G1","Assestamento G2"].map(ag=>(
+                {week===1 && ["Assestamento G1","Assestamento G2"].map(ag => (
                   <td key={ag} style={{ padding:"4px 8px", border:"1px solid #e0e0e0", maxWidth:100, color:"#333", wordBreak:"break-word" }}>{wkData[ag]?.[row.key]||""}</td>
                 ))}
-                {days.filter(d=>!d.startsWith("Assestamento")).map(d=>(
+                {days.filter(d => !d.startsWith("Assestamento")).map(d => (
                   <td key={d} style={{ padding:"4px 8px", border:"1px solid #e0e0e0", maxWidth:120, color:"#333", wordBreak:"break-word" }}>{wkData[d]?.[row.key]||""}</td>
                 ))}
               </tr>
@@ -302,23 +287,13 @@ function TableView({ client, week }) {
 
 function InstallGuide({ platform }) {
   const [open, setOpen] = useState(false);
-  const isApple = platform === "apple";
-  const steps = isApple ? [
-    "1. Apri questo link da Safari (non Chrome!)",
-    "2. Tocca il pulsante Condividi in basso",
-    "3. Scorri e tocca 'Aggiungi a schermata Home'",
-    "4. Tocca 'Aggiungi' in alto a destra",
-    "L'app apparira' come icona sul tuo iPhone!"
-  ] : [
-    "1. Apri questo link da Chrome",
-    "2. Tocca i 3 puntini in alto a destra",
-    "3. Tocca 'Aggiungi a schermata Home'",
-    "4. Tocca 'Aggiungi' per confermare",
-    "L'app apparira' come icona sul tuo Android!"
-  ];
+  const isApple = platform==="apple";
+  const steps = isApple
+    ? ["1. Apri questo link da Safari (non Chrome!)","2. Tocca il pulsante Condividi in basso","3. Scorri e tocca Aggiungi a schermata Home","4. Tocca Aggiungi in alto a destra","L'app apparira come icona sul tuo iPhone!"]
+    : ["1. Apri questo link da Chrome","2. Tocca i 3 puntini in alto a destra","3. Tocca Aggiungi a schermata Home","4. Tocca Aggiungi per confermare","L'app apparira come icona sul tuo Android!"];
   return (
     <div style={{ position:"relative" }}>
-      <button onClick={()=>setOpen(!open)} style={{ background:isApple?"#555":C.green, color:"#fff", border:"none", borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+      <button onClick={() => setOpen(!open)} style={{ background:isApple?"#555":C.green, color:"#fff", border:"none", borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
         {isApple ? "App iPhone" : "App Android"}
       </button>
       {open && (
@@ -326,10 +301,10 @@ function InstallGuide({ platform }) {
           <div style={{ fontWeight:700, color:isApple?"#555":C.green, marginBottom:10, fontSize:13 }}>
             {isApple ? "Installa su iPhone/iPad" : "Installa su Android"}
           </div>
-          {steps.map((s,i)=>(
+          {steps.map((s,i) => (
             <div key={i} style={{ fontSize:13, color:C.dark, marginBottom:8, lineHeight:1.5 }}>{s}</div>
           ))}
-          <div onClick={()=>setOpen(false)} style={{ textAlign:"right", fontSize:12, color:C.blue, cursor:"pointer", marginTop:8 }}>Chiudi</div>
+          <div onClick={() => setOpen(false)} style={{ textAlign:"right", fontSize:12, color:C.blue, cursor:"pointer", marginTop:8 }}>Chiudi</div>
         </div>
       )}
     </div>
@@ -343,12 +318,11 @@ function ClientView({ client, onSave }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showTable, setShowTable] = useState(false);
-
   const days = week===1 ? DAYS_W1 : DAYS_W2;
 
   function handleChange(dayKey, field, val) {
     const wk = "week"+week;
-    setData(prev=>({ ...prev, [wk]:{ ...prev[wk], [dayKey]:{ ...prev[wk][dayKey], [field]:val } } }));
+    setData(prev => ({ ...prev, [wk]:{ ...prev[wk], [dayKey]:{ ...prev[wk][dayKey], [field]:val } } }));
     setSaved(false);
   }
 
@@ -357,20 +331,20 @@ function ClientView({ client, onSave }) {
     await onSave(data);
     setSaving(false);
     setSaved(true);
-    setTimeout(()=>setSaved(false), 2500);
+    setTimeout(() => setSaved(false), 2500);
   }
 
   const wkData = data["week"+week];
 
-  if (showTable) {
+  if(showTable) {
     return (
       <div style={{ minHeight:"100vh", background:"#fff" }}>
         <Header title={"Ciao "+client.name+"!"} sub="Riepilogo settimana" />
         <div style={{ padding:16 }}>
           <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-            <Btn onClick={()=>setShowTable(false)} color={C.blue} small>Torna alla scheda</Btn>
-            {[1,2].map(w=>(
-              <button key={w} onClick={()=>setWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:"#e0e0e0", color:week===w?"#fff":C.dark, fontWeight:600, margin:4 }}>
+            <Btn onClick={() => setShowTable(false)} color={C.blue} small>Torna alla scheda</Btn>
+            {[1,2].map(w => (
+              <button key={w} onClick={() => setWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:"#e0e0e0", color:week===w?"#fff":C.dark, fontWeight:600, margin:4 }}>
                 Settimana {w}
               </button>
             ))}
@@ -385,41 +359,33 @@ function ClientView({ client, onSave }) {
     <div style={{ maxWidth:700, margin:"0 auto", minHeight:"100vh", background:"#fff" }}>
       <Header title={"Ciao "+client.name+"! 👶"} sub="Scheda Monitoraggio Percorso Sonno" />
       <div style={{ padding:16 }}>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:8 }}>
-          <Btn small color={C.blue} onClick={()=>window.location.reload()}>Aggiorna dati</Btn>
+          <Btn small color={C.blue} onClick={() => window.location.reload()}>Aggiorna dati</Btn>
           <div style={{ display:"flex", gap:8 }}>
             <InstallGuide platform="apple" />
             <InstallGuide platform="android" />
           </div>
         </div>
-
         {client.papa && <div style={{ fontSize:14, color:"#555", marginBottom:8 }}>Papa: {client.papa}</div>}
-
         <div style={{ background:C.blueLight, borderRadius:8, padding:12, fontSize:13, color:C.dark, marginBottom:16, lineHeight:1.6 }}>
-          Compilare le schede entro la fine della giornata, aggiungendo l'addormentamento serale prima di andare a dormire. Utilizzare le tabelle durante la mini consulenza se avete bisogno di aiuto.
+          Compilare le schede entro la fine della giornata. Utilizzare le tabelle durante la mini consulenza se avete bisogno di aiuto.
         </div>
-
         <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-          {[1,2].map(w=>(
-            <button key={w} onClick={()=>{ setWeek(w); setActiveDay(w===1?DAYS_W1[0]:DAYS_W2[0]); }} style={{ flex:1, padding:"10px 0", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:"#e0e0e0", color:week===w?"#fff":C.dark, fontWeight:600 }}>
+          {[1,2].map(w => (
+            <button key={w} onClick={() => { setWeek(w); setActiveDay(w===1?DAYS_W1[0]:DAYS_W2[0]); }} style={{ flex:1, padding:"10px 0", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:"#e0e0e0", color:week===w?"#fff":C.dark, fontWeight:600 }}>
               Settimana {w} {w===1?"(Giorni 1-7)":"(Giorni 8-14)"}
             </button>
           ))}
         </div>
-
         <div style={{ textAlign:"right", marginBottom:12 }}>
-          <Btn small color={C.olive} onClick={()=>setShowTable(true)}>Riepilogo settimana</Btn>
+          <Btn small color={C.olive} onClick={() => setShowTable(true)}>Riepilogo settimana</Btn>
         </div>
-
         <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:16 }}>
-          {days.map(d=>(
-            <button key={d} onClick={()=>setActiveDay(d)} style={{ padding:"6px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, background:activeDay===d?C.blue:C.gray, color:activeDay===d?"#fff":C.dark, fontWeight:activeDay===d?700:400 }}>{d}</button>
+          {days.map(d => (
+            <button key={d} onClick={() => setActiveDay(d)} style={{ padding:"6px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, background:activeDay===d?C.blue:C.gray, color:activeDay===d?"#fff":C.dark, fontWeight:activeDay===d?700:400 }}>{d}</button>
           ))}
         </div>
-
         <DayForm dayKey={activeDay} data={wkData[activeDay]} onChange={handleChange} isConsultant={false} />
-
         <div style={{ textAlign:"center", marginTop:16 }}>
           <Btn onClick={handleSave} color={saved?C.green:C.gold} disabled={saving}>
             {saving?"Salvataggio...":saved?"Salvato!":"Salva scheda"}
@@ -443,17 +409,17 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
   function openClient(c) { setSelected(c); setWeek(1); setActiveDay(DAYS_W1[0]); setView("detail"); }
   function openTable(c) { setSelected(c); setTableWeek(1); setView("table"); }
 
-  if (view==="table" && selected) {
-    const client = clients.find(c=>c.id===selected.id)||selected;
+  if(view==="table" && selected) {
+    const client = clients.find(c => c.id===selected.id)||selected;
     return (
       <div style={{ minHeight:"100vh", background:"#fff" }}>
         <Header title={client.name+" - Vista Tabella"} sub={"Settimana "+tableWeek} />
         <div style={{ padding:16 }}>
           <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-            <Btn onClick={()=>setView("list")} color={C.blue} small>Lista clienti</Btn>
-            <Btn onClick={()=>setView("detail")} color={C.blue} small>Vista scheda</Btn>
-            {[1,2].map(w=>(
-              <button key={w} onClick={()=>setTableWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:tableWeek===w?C.gold:"#e0e0e0", color:tableWeek===w?"#fff":C.dark, fontWeight:600, margin:4 }}>
+            <Btn onClick={() => setView("list")} color={C.blue} small>Lista clienti</Btn>
+            <Btn onClick={() => setView("detail")} color={C.blue} small>Vista scheda</Btn>
+            {[1,2].map(w => (
+              <button key={w} onClick={() => setTableWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:tableWeek===w?C.gold:"#e0e0e0", color:tableWeek===w?"#fff":C.dark, fontWeight:600, margin:4 }}>
                 Settimana {w}
               </button>
             ))}
@@ -464,8 +430,8 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
     );
   }
 
-  if (view==="detail" && selected) {
-    const client = clients.find(c=>c.id===selected.id)||selected;
+  if(view==="detail" && selected) {
+    const client = clients.find(c => c.id===selected.id)||selected;
     const days = week===1 ? DAYS_W1 : DAYS_W2;
     const wkData = client["week"+week];
     const baseUrl = window.location.origin+window.location.pathname;
@@ -479,7 +445,7 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
     async function handleSave() {
       await onUpdateClient(client);
       setSaved(true);
-      setTimeout(()=>setSaved(false), 2500);
+      setTimeout(() => setSaved(false), 2500);
     }
 
     return (
@@ -487,38 +453,29 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
         <Header title={client.name} sub={"Cliente dal "+client.createdAt+(client.papa?" - Papa: "+client.papa:"")} />
         <div style={{ padding:16 }}>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:12 }}>
-            <Btn onClick={()=>setView("list")} color={C.blue} small>Lista clienti</Btn>
-            <Btn onClick={()=>openTable(client)} color={C.olive} small>Vista tabella</Btn>
+            <Btn onClick={() => setView("list")} color={C.blue} small>Lista clienti</Btn>
+            <Btn onClick={() => openTable(client)} color={C.olive} small>Vista tabella</Btn>
           </div>
-
           <div style={{ background:C.gray, borderRadius:8, padding:12, margin:"12px 0", fontSize:13 }}>
             Link cliente: <span style={{ color:C.blue, wordBreak:"break-all" }}>{baseUrl}?client={client.link}</span>
-            <Btn small color={C.gold} onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(baseUrl+"?client="+client.link)}>Copia</Btn>
+            <Btn small color={C.gold} onClick={() => navigator.clipboard && navigator.clipboard.writeText(baseUrl+"?client="+client.link)}>Copia</Btn>
           </div>
-
-          <div style={{ background:"#e8f5e9", border:"1px solid #4caf50", borderRadius:8, padding:10, marginBottom:12, fontSize:13 }}>
-            Modalita consulente: puoi modificare direttamente i campi di ogni giorno.
-          </div>
-
           <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-            {[1,2].map(w=>(
-              <button key={w} onClick={()=>{ setWeek(w); setActiveDay(w===1?DAYS_W1[0]:DAYS_W2[0]); }} style={{ flex:1, padding:"10px 0", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:"#e0e0e0", color:week===w?"#fff":C.dark, fontWeight:600 }}>
+            {[1,2].map(w => (
+              <button key={w} onClick={() => { setWeek(w); setActiveDay(w===1?DAYS_W1[0]:DAYS_W2[0]); }} style={{ flex:1, padding:"10px 0", borderRadius:8, border:"none", cursor:"pointer", background:week===w?C.gold:"#e0e0e0", color:week===w?"#fff":C.dark, fontWeight:600 }}>
                 Settimana {w} {w===1?"(G1-7)":"(G8-14)"}
               </button>
             ))}
           </div>
-
           <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:16 }}>
-            {days.map(d=>(
-              <button key={d} onClick={()=>setActiveDay(d)} style={{ padding:"6px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, background:activeDay===d?C.blue:C.gray, color:activeDay===d?"#fff":C.dark, fontWeight:activeDay===d?700:400 }}>{d}</button>
+            {days.map(d => (
+              <button key={d} onClick={() => setActiveDay(d)} style={{ padding:"6px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, background:activeDay===d?C.blue:C.gray, color:activeDay===d?"#fff":C.dark, fontWeight:activeDay===d?700:400 }}>{d}</button>
             ))}
           </div>
-
           <DayForm dayKey={activeDay} data={wkData[activeDay]} onChange={handleChange} isConsultant={true} />
-
           <div style={{ textAlign:"center", marginTop:16 }}>
             <Btn onClick={handleSave} color={saved?C.green:C.gold}>
-              {saved ? "Salvato!" : "Salva modifiche"}
+              {saved?"Salvato!":"Salva modifiche"}
             </Btn>
           </div>
         </div>
@@ -531,10 +488,9 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
       <Header title="Pannello Consulente" sub="Gestione clienti - Monitoraggio Sonno" />
       <div style={{ padding:16 }}>
         <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:8 }}>
-          <Btn small color={C.blue} onClick={()=>window.location.reload()}>Ricarica dati</Btn>
+          <Btn small color={C.blue} onClick={() => window.location.reload()}>Ricarica dati</Btn>
           <Btn small color={C.red} onClick={onLogout}>Esci</Btn>
         </div>
-
         <div style={{ background:C.goldLight, borderRadius:8, padding:16, marginBottom:20 }}>
           <div style={{ fontWeight:600, fontSize:14, marginBottom:10 }}>Aggiungi nuova cliente:</div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
@@ -547,14 +503,13 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
               <Input value={newPapa} onChange={setNewPapa} placeholder="Nome del papa..." />
             </div>
             <div style={{ display:"flex", alignItems:"flex-end" }}>
-              <Btn onClick={()=>{ if(newName.trim()){ onAddClient(newName.trim(),newPapa.trim()); setNewName(""); setNewPapa(""); } }}>Aggiungi</Btn>
+              <Btn onClick={() => { if(newName.trim()){ onAddClient(newName.trim(),newPapa.trim()); setNewName(""); setNewPapa(""); } }}>Aggiungi</Btn>
             </div>
           </div>
         </div>
-
         {clients.length===0 ? (
           <div style={{ textAlign:"center", color:"#888", padding:40 }}>Nessuna cliente ancora.</div>
-        ) : clients.map(c=>(
+        ) : clients.map(c => (
           <div key={c.id} style={{ background:C.gray, borderRadius:10, padding:16, marginBottom:12, display:"flex", alignItems:"center", gap:12, border:"1px solid #e0e0e0" }}>
             <div style={{ width:44, height:44, borderRadius:"50%", background:"linear-gradient(135deg,#b8960c,#6b8cae)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:700, fontSize:18, flexShrink:0 }}>
               {c.name[0].toUpperCase()}
@@ -565,9 +520,9 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
               <div style={{ fontSize:11, color:C.blue, marginTop:2 }}>Link: ...?client={c.link}</div>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <Btn small onClick={()=>openClient(c)} color={C.blue}>Scheda</Btn>
-              <Btn small onClick={()=>openTable(c)} color={C.olive}>Tabella</Btn>
-              <Btn small onClick={()=>{ if(window.confirm("Eliminare "+c.name+"?")) onDeleteClient(c.id); }} color={C.red}>Elimina</Btn>
+              <Btn small onClick={() => openClient(c)} color={C.blue}>Scheda</Btn>
+              <Btn small onClick={() => openTable(c)} color={C.olive}>Tabella</Btn>
+              <Btn small onClick={() => { if(window.confirm("Eliminare "+c.name+"?")) onDeleteClient(c.id); }} color={C.red}>Elimina</Btn>
             </div>
           </div>
         ))}
@@ -579,13 +534,11 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
 function Login({ onLogin, clients }) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
-
-  useEffect(()=>{
+  useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const cl = p.get("client");
-    if(cl) { const found = clients.find(c=>c.link===cl); if(found) onLogin("client",found); }
+    if(cl) { const found = clients.find(c => c.link===cl); if(found) onLogin("client",found); }
   }, [clients]);
-
   return (
     <div style={{ maxWidth:400, margin:"60px auto", background:"#fff", borderRadius:16, boxShadow:"0 4px 24px rgba(0,0,0,0.1)", overflow:"hidden" }}>
       <Header title="Accesso Consulente" sub="Pannello di gestione clienti" />
@@ -595,7 +548,7 @@ function Login({ onLogin, clients }) {
           <Input value={code} onChange={setCode} placeholder="Inserisci il codice..." />
         </div>
         {err && <div style={{ color:C.red, fontSize:13, marginBottom:8 }}>{err}</div>}
-        <Btn onClick={()=>{ code===CONSULTANT_CODE ? onLogin("consultant") : setErr("Codice non corretto"); }}>Accedi</Btn>
+        <Btn onClick={() => { code===CONSULTANT_CODE ? onLogin("consultant") : setErr("Codice non corretto"); }}>Accedi</Btn>
         <div style={{ marginTop:16, fontSize:12, color:"#888" }}>Le clienti accedono tramite il loro link personale.</div>
       </div>
     </div>
@@ -603,18 +556,18 @@ function Login({ onLogin, clients }) {
 }
 
 export default function App() {
-  const [role, setRole] = useState(()=>sessionStorage.getItem("role")||null);
+  const [role, setRole] = useState(() => sessionStorage.getItem("role")||null);
   const [clients, setClients] = useState([]);
   const [activeClient, setActiveClient] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(()=>{ loadClients().then(c=>{ setClients(c); setLoading(false); }); }, []);
+  useEffect(() => { loadClients().then(c => { setClients(c); setLoading(false); }); }, []);
 
-  useEffect(()=>{
+  useEffect(() => {
     if(!loading) {
       const p = new URLSearchParams(window.location.search);
       const cl = p.get("client");
-      if(cl) { const found = clients.find(c=>c.link===cl); if(found){ setActiveClient(found); setRole("client"); sessionStorage.setItem("role","client"); } }
+      if(cl) { const found = clients.find(c => c.link===cl); if(found){ setActiveClient(found); setRole("client"); sessionStorage.setItem("role","client"); } }
     }
   }, [loading, clients]);
 
@@ -622,13 +575,12 @@ export default function App() {
   async function updateClient(upd) { setClients(prev=>prev.map(c=>c.id===upd.id?upd:c)); await saveClient(upd); if(activeClient&&activeClient.id===upd.id) setActiveClient(upd); }
   async function deleteClient(id) { setClients(prev=>prev.filter(c=>c.id!==id)); await removeClient(id); }
   async function saveClientData(data) { if(!activeClient) return; const upd={...activeClient,...data}; setActiveClient(upd); setClients(prev=>prev.map(c=>c.id===upd.id?upd:c)); await saveClient(upd); }
-
   function handleLogin(r, cl) { setRole(r); sessionStorage.setItem("role",r); if(cl) setActiveClient(cl); }
   function handleLogout() { setRole(null); sessionStorage.removeItem("role"); }
 
   if(loading) return <div style={{ textAlign:"center", padding:60, color:C.gold, fontSize:20 }}>Caricamento...</div>;
   if(!role) return <Login clients={clients} onLogin={handleLogin} />;
-  if(role==="client" && activeClient) { const fresh = clients.find(c=>c.id===activeClient.id)||activeClient; return <ClientView client={fresh} onSave={saveClientData} />; }
+  if(role==="client"&&activeClient) { const fresh=clients.find(c=>c.id===activeClient.id)||activeClient; return <ClientView client={fresh} onSave={saveClientData} />; }
   if(role==="consultant") return <ConsultantView clients={clients} onAddClient={addClient} onUpdateClient={updateClient} onDeleteClient={deleteClient} onLogout={handleLogout} />;
   return null;
 }
