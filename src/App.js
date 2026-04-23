@@ -434,6 +434,14 @@ function DayForm({ dayKey, data, onChange, isConsultant }) {
 
 function TableView({ client, week }) {
   const days = week===1 ? DAYS_W1 : DAYS_W2;
+
+  useEffect(() => {
+    setActiveDay(week===1 ? DAYS_W1[0] : DAYS_W2[0]);
+  }, [week]);
+
+  useEffect(() => {
+    setActiveDay(DAYS_W1[0]);
+  }, [tab]);
   const wkData = client["week"+week];
   const rows = [];
   SECTIONS.forEach(sec => {
