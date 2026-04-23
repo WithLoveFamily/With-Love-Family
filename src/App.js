@@ -773,8 +773,8 @@ function RegisterPage({ onRegistered }) {
     c.registeredAt = new Date().toLocaleDateString("it-IT");
     await saveClient(c);
     setSaving(false);
-    setDone(true);
-    if(onRegistered) onRegistered(c);
+    // Reindirizza direttamente alla scheda personale
+    window.location.href = window.location.origin + window.location.pathname + "?client=" + c.link;
   }
 
   if(done) return (
