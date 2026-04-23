@@ -635,10 +635,18 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
         <div style={{ padding:16 }}>
           <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
             <Btn onClick={() => setView("list")} color={C.blue} small>Lista clienti</Btn>
-            <Btn onClick={() => setView("detail")} color={C.blue} small>Vista scheda</Btn>
-            {[1,2].map(w => <button key={w} onClick={() => setTableWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:tableWeek===w?C.gold:"#e0e0e0", color:tableWeek===w?"#fff":C.dark, fontWeight:600, margin:4 }}>Settimana {w}</button>)}
+            <Btn onClick={() => { setView("detail"); }} color={C.blue} small>Vista scheda</Btn>
+            {[1,2].map(w => (
+              <button key={w} onClick={() => setTableWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:tableWeek===w?C.gold:"#e0e0e0", color:tableWeek===w?"#fff":C.dark, fontWeight:600, margin:4 }}>
+                Settimana {w}
+              </button>
+            ))}
           </div>
-          <TableView client={client} week={tableWeek} />
+          {client.week1 && client.week2 ? (
+            <TableView client={client} week={tableWeek} />
+          ) : (
+            <div style={{ textAlign:"center", color:"#888", padding:40 }}>Nessun dato disponibile ancora.</div>
+          )}
         </div>
       </div>
     );
