@@ -570,8 +570,9 @@ function ClientView({ client, onSave }) {
           <Btn small color={C.blue} onClick={() => window.location.reload()}>Aggiorna dati</Btn>
           <div style={{ display:"flex", gap:8 }}><InstallGuide platform="apple" /><InstallGuide platform="android" /></div>
         </div>
-        <div style={{ background:C.blueLight, borderRadius:8, padding:12, fontSize:13, color:C.dark, marginBottom:16, lineHeight:1.6 }}>
-          Compilare le schede entro la fine della giornata. Utilizzare le tabelle durante la mini consulenza se avete bisogno di aiuto.
+        <div style={{ background:C.blueLight, borderRadius:8, padding:12, fontSize:13, color:C.dark, marginBottom:16, lineHeight:1.8 }}>
+          📋 <strong>Questionario:</strong> compilalo almeno 24 ore prima della consulenza, così la consulente potra prepararsi al meglio per te.<br/>
+          🕐 <strong>Schede giornaliere:</strong> inizia a compilarle solo dopo aver effettuato la consulenza e ricevuto le indicazioni personalizzate.
         </div>
 
         {/* Tab principali */}
