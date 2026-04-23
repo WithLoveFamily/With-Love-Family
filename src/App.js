@@ -15,7 +15,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
 const CONSULTANT_CODE = "admin2024";
-const DAYS_W1 = ["Assestamento G1","Assestamento G2","Giorno 1","Giorno 2","Giorno 3","Giorno 4","Giorno 5","Giorno 6","Giorno 7"];
+const DAYS_W1 = ["Giorno 1","Giorno 2","Giorno 3","Giorno 4","Giorno 5","Giorno 6","Giorno 7"];
 const DAYS_W2 = ["Giorno 8","Giorno 9","Giorno 10","Giorno 11","Giorno 12","Giorno 13","Giorno 14"];
 const NOTE_SECTIONS = ["mattina","pomeriggio","pisolino_extra","sera","notte"];
 
@@ -629,24 +629,25 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
 
   if(view==="table" && selected) {
     const client = clients.find(c => c.id===selected.id)||selected;
+    const safeClient = {
+      ...client,
+      week1: client.week1 || emptyDays(DAYS_W1),
+      week2: client.week2 || emptyDays(DAYS_W2)
+    };
     return (
       <div style={{ minHeight:"100vh", background:"#fff" }}>
         <Header title={client.name+" - Vista Tabella"} sub={"Settimana "+tableWeek} />
         <div style={{ padding:16 }}>
           <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
             <Btn onClick={() => setView("list")} color={C.blue} small>Lista clienti</Btn>
-            <Btn onClick={() => { setView("detail"); }} color={C.blue} small>Vista scheda</Btn>
+            <Btn onClick={() => setView("detail")} color={C.blue} small>Vista scheda</Btn>
             {[1,2].map(w => (
               <button key={w} onClick={() => setTableWeek(w)} style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:tableWeek===w?C.gold:"#e0e0e0", color:tableWeek===w?"#fff":C.dark, fontWeight:600, margin:4 }}>
                 Settimana {w}
               </button>
             ))}
           </div>
-          {client.week1 && client.week2 ? (
-            <TableView client={client} week={tableWeek} />
-          ) : (
-            <div style={{ textAlign:"center", color:"#888", padding:40 }}>Nessun dato disponibile ancora.</div>
-          )}
+          <TableView client={safeClient} week={tableWeek} />
         </div>
       </div>
     );
