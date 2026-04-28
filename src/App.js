@@ -169,87 +169,90 @@ async function saveClient(c) { await setDoc(doc(db,"clients",c.id), c); }
 async function removeClient(id) { await deleteDoc(doc(db,"clients",id)); }
 
 // ── PDF EXPORT ──
-async function downloadQuestionarioPDF(client) {
-  const { jsPDF } = await import("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-  const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-  const q = client.questionario || emptyQuestionario();
-  const pageW = 210, margin = 16, contentW = pageW - margin*2;
-  let y = 20;
+function downloadQuestionarioPDF(client) {
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const q = client.questionario || emptyQuestionario();
+    const pageW = 210, margin = 16, contentW = pageW - margin*2;
+    let y = 20;
 
-  function checkPage(needed=10) {
-    if(y + needed > 280) { pdf.addPage(); y = 20; }
-  }
-
-  // Header
-  pdf.setFillColor(184,150,12);
-  pdf.rect(0,0,210,18,"F");
-  pdf.setTextColor(255,255,255);
-  pdf.setFontSize(14);
-  pdf.setFont("helvetica","bold");
-  pdf.text("With Love Family – Questionario Sleep Coaching", margin, 12);
-  pdf.setFontSize(10);
-  pdf.setFont("helvetica","normal");
-  pdf.text("Cliente: "+client.name+"  |  Data: "+client.createdAt, margin, 17);
-  y = 26;
-
-  QUESTIONARIO_SEZIONI.forEach(sez => {
-    checkPage(14);
-    // Section header
-    pdf.setFillColor(107,140,174);
-    pdf.rect(margin, y, contentW, 8, "F");
-    pdf.setTextColor(255,255,255);
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica","bold");
-    pdf.text(sez.titolo, margin+3, y+5.5);
-    y += 11;
-
-    if(sez.note) {
-      pdf.setTextColor(100,100,100);
-      pdf.setFontSize(8);
-      pdf.setFont("helvetica","italic");
-      pdf.text(sez.note, margin, y);
-      y += 5;
+    function checkPage(needed=10) {
+      if(y + needed > 280) { pdf.addPage(); y = 20; }
     }
 
-    sez.campi.forEach(campo => {
-      const val = q[campo.key] || "—";
-      checkPage(16);
-
-      // Label
-      pdf.setTextColor(60,60,60);
-      pdf.setFontSize(8.5);
-      pdf.setFont("helvetica","bold");
-      pdf.text(campo.label, margin, y);
-      y += 4;
-
-      // Value box
-      pdf.setFillColor(247,247,247);
-      pdf.setDrawColor(220,220,220);
-      const lines = pdf.splitTextToSize(val, contentW-6);
-      const boxH = Math.max(8, lines.length*4.5+3);
-      checkPage(boxH+2);
-      pdf.rect(margin, y, contentW, boxH, "FD");
-      pdf.setTextColor(45,45,45);
-      pdf.setFontSize(9);
-      pdf.setFont("helvetica","normal");
-      pdf.text(lines, margin+3, y+4.5);
-      y += boxH+4;
-    });
-    y += 3;
-  });
-
-  // Footer on each page
-  const totalPages = pdf.internal.getNumberOfPages();
-  for(let i=1; i<=totalPages; i++) {
-    pdf.setPage(i);
-    pdf.setFontSize(8);
-    pdf.setTextColor(150,150,150);
+    // Header dorato
+    pdf.setFillColor(184,150,12);
+    pdf.rect(0,0,210,18,"F");
+    pdf.setTextColor(255,255,255);
+    pdf.setFontSize(13);
+    pdf.setFont("helvetica","bold");
+    pdf.text("With Love Family - Questionario Sleep Coaching", margin, 11);
+    pdf.setFontSize(9);
     pdf.setFont("helvetica","normal");
-    pdf.text("With Love Family – Questionario di "+client.name, margin, 292);
-    pdf.text("Pagina "+i+" di "+totalPages, 180, 292);
-  }
+    pdf.text("Cliente: "+client.name+"   |   Data: "+client.createdAt, margin, 17);
+    y = 26;
 
-  pdf.save("Questionario_"+client.name.replace(/\s+/g,"_")+".pdf");
+    QUESTIONARIO_SEZIONI.forEach(sez => {
+      checkPage(14);
+      // Intestazione sezione
+      pdf.setFillColor(107,140,174);
+      pdf.rect(margin, y, contentW, 8, "F");
+      pdf.setTextColor(255,255,255);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica","bold");
+      pdf.text(sez.titolo, margin+3, y+5.5);
+      y += 11;
+
+      if(sez.note) {
+        pdf.setTextColor(120,120,120);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica","italic");
+        pdf.text(sez.note, margin, y);
+        y += 5;
+      }
+
+      sez.campi.forEach(campo => {
+        const val = (q[campo.key] && q[campo.key].trim()) ? q[campo.key] : "—";
+        checkPage(18);
+        // Label
+        pdf.setTextColor(60,60,60);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica","bold");
+        pdf.text(campo.label, margin, y);
+        y += 4;
+        // Box valore
+        pdf.setFillColor(248,248,248);
+        pdf.setDrawColor(220,220,220);
+        const lines = pdf.splitTextToSize(val, contentW-6);
+        const boxH = Math.max(8, lines.length*4.5+3);
+        checkPage(boxH+3);
+        pdf.rect(margin, y, contentW, boxH, "FD");
+        pdf.setTextColor(40,40,40);
+        pdf.setFontSize(8.5);
+        pdf.setFont("helvetica","normal");
+        pdf.text(lines, margin+3, y+4.5);
+        y += boxH+5;
+      });
+      y += 2;
+    });
+
+    // Numero pagine
+    const totalPages = pdf.internal.getNumberOfPages();
+    for(let i=1; i<=totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(160,160,160);
+      pdf.setFont("helvetica","normal");
+      pdf.text("With Love Family - "+client.name, margin, 292);
+      pdf.text("Pag. "+i+" / "+totalPages, 195, 292, { align:"right" });
+    }
+
+    pdf.save("Questionario_"+client.name.replace(/\s+/g,"_")+".pdf");
+  } catch(e) {
+    alert("Errore nella generazione del PDF. Assicurati di usare un browser aggiornato.");
+    console.error(e);
+  }
 }
 
 function Header({ title, sub }) {
@@ -268,7 +271,9 @@ function Btn({ children, onClick, color, small, disabled }) {
 
 function Input({ value, onChange, placeholder, multiline }) {
   const s = { width:"100%", border:"1px solid #e0e0e0", borderRadius:6, padding:"8px 10px", fontSize:14, background:"#fff", boxSizing:"border-box", fontFamily:"inherit" };
-  return multiline ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}} /> : <input value={e=>onChange(e.target.value)} placeholder={placeholder} style={s} />;
+  return multiline
+    ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}} />
+    : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s} />;
 }
 
 function renderLinks(text) {
@@ -487,7 +492,7 @@ function RegisterPage() {
   }
   return (
     <div style={{ maxWidth:440, margin:"60px auto", background:"#fff", borderRadius:16, boxShadow:"0 4px 24px rgba(0,0,0,0.1)", overflow:"hidden" }}>
-      <Header title="Registrati al percorso" sub="With Love Family – Sleep Coaching" />
+      <Header title="Registrati al percorso" sub="With Love Family - Sleep Coaching" />
       <div style={{ padding:24 }}>
         <div style={{ background:C.blueLight, borderRadius:8, padding:12, fontSize:13, marginBottom:20, lineHeight:1.6 }}>
           Compila il modulo per richiedere il tuo percorso di Sleep Coaching.
@@ -676,7 +681,7 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
           {tab==="q" && (
             <div>
               <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-                <Btn small color="#8B4513" onClick={()=>downloadQuestionarioPDF(client)}>📄 Scarica PDF</Btn>
+                <Btn small color="#7a4f1e" onClick={()=>downloadQuestionarioPDF(client)}>📄 Scarica PDF</Btn>
               </div>
               <QuestionarioView questionario={questionario} onChange={handleQChange} readOnly={false} />
             </div>
