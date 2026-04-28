@@ -168,6 +168,90 @@ async function loadClients() {
 async function saveClient(c) { await setDoc(doc(db,"clients",c.id), c); }
 async function removeClient(id) { await deleteDoc(doc(db,"clients",id)); }
 
+// ── PDF EXPORT ──
+async function downloadQuestionarioPDF(client) {
+  const { jsPDF } = await import("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  const q = client.questionario || emptyQuestionario();
+  const pageW = 210, margin = 16, contentW = pageW - margin*2;
+  let y = 20;
+
+  function checkPage(needed=10) {
+    if(y + needed > 280) { pdf.addPage(); y = 20; }
+  }
+
+  // Header
+  pdf.setFillColor(184,150,12);
+  pdf.rect(0,0,210,18,"F");
+  pdf.setTextColor(255,255,255);
+  pdf.setFontSize(14);
+  pdf.setFont("helvetica","bold");
+  pdf.text("With Love Family – Questionario Sleep Coaching", margin, 12);
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica","normal");
+  pdf.text("Cliente: "+client.name+"  |  Data: "+client.createdAt, margin, 17);
+  y = 26;
+
+  QUESTIONARIO_SEZIONI.forEach(sez => {
+    checkPage(14);
+    // Section header
+    pdf.setFillColor(107,140,174);
+    pdf.rect(margin, y, contentW, 8, "F");
+    pdf.setTextColor(255,255,255);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica","bold");
+    pdf.text(sez.titolo, margin+3, y+5.5);
+    y += 11;
+
+    if(sez.note) {
+      pdf.setTextColor(100,100,100);
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica","italic");
+      pdf.text(sez.note, margin, y);
+      y += 5;
+    }
+
+    sez.campi.forEach(campo => {
+      const val = q[campo.key] || "—";
+      checkPage(16);
+
+      // Label
+      pdf.setTextColor(60,60,60);
+      pdf.setFontSize(8.5);
+      pdf.setFont("helvetica","bold");
+      pdf.text(campo.label, margin, y);
+      y += 4;
+
+      // Value box
+      pdf.setFillColor(247,247,247);
+      pdf.setDrawColor(220,220,220);
+      const lines = pdf.splitTextToSize(val, contentW-6);
+      const boxH = Math.max(8, lines.length*4.5+3);
+      checkPage(boxH+2);
+      pdf.rect(margin, y, contentW, boxH, "FD");
+      pdf.setTextColor(45,45,45);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica","normal");
+      pdf.text(lines, margin+3, y+4.5);
+      y += boxH+4;
+    });
+    y += 3;
+  });
+
+  // Footer on each page
+  const totalPages = pdf.internal.getNumberOfPages();
+  for(let i=1; i<=totalPages; i++) {
+    pdf.setPage(i);
+    pdf.setFontSize(8);
+    pdf.setTextColor(150,150,150);
+    pdf.setFont("helvetica","normal");
+    pdf.text("With Love Family – Questionario di "+client.name, margin, 292);
+    pdf.text("Pagina "+i+" di "+totalPages, 180, 292);
+  }
+
+  pdf.save("Questionario_"+client.name.replace(/\s+/g,"_")+".pdf");
+}
+
 function Header({ title, sub }) {
   return (
     <div style={{ textAlign:"center", padding:"24px 16px 8px", background:"linear-gradient(135deg,#f5e9b8,#dde8f3)", borderBottom:"2px solid #b8960c" }}>
@@ -184,7 +268,7 @@ function Btn({ children, onClick, color, small, disabled }) {
 
 function Input({ value, onChange, placeholder, multiline }) {
   const s = { width:"100%", border:"1px solid #e0e0e0", borderRadius:6, padding:"8px 10px", fontSize:14, background:"#fff", boxSizing:"border-box", fontFamily:"inherit" };
-  return multiline ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}} /> : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s} />;
+  return multiline ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}} /> : <input value={e=>onChange(e.target.value)} placeholder={placeholder} style={s} />;
 }
 
 function renderLinks(text) {
@@ -589,7 +673,14 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
               <button key={t.id} onClick={()=>switchTab(t.id)} style={{ flex:1, padding:"10px 4px", borderRadius:8, border:"none", cursor:"pointer", background:tab===t.id?C.gold:"#e0e0e0", color:tab===t.id?"#fff":C.dark, fontWeight:600, fontSize:13 }}>{t.label}</button>
             ))}
           </div>
-          {tab==="q" && <QuestionarioView questionario={questionario} onChange={handleQChange} readOnly={false} />}
+          {tab==="q" && (
+            <div>
+              <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+                <Btn small color="#8B4513" onClick={()=>downloadQuestionarioPDF(client)}>📄 Scarica PDF</Btn>
+              </div>
+              <QuestionarioView questionario={questionario} onChange={handleQChange} readOnly={false} />
+            </div>
+          )}
           {(tab==="w1"||tab==="w2") && (
             <div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:16 }}>
