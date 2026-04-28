@@ -169,8 +169,17 @@ async function saveClient(c) { await setDoc(doc(db,"clients",c.id), c); }
 async function removeClient(id) { await deleteDoc(doc(db,"clients",id)); }
 
 // ── PDF EXPORT ──
-function downloadQuestionarioPDF(client) {
+async function downloadQuestionarioPDF(client) {
   try {
+    if(!window.jspdf) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
     const q = client.questionario || emptyQuestionario();
@@ -681,7 +690,7 @@ function ConsultantView({ clients, onAddClient, onUpdateClient, onDeleteClient, 
           {tab==="q" && (
             <div>
               <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-                <Btn small color="#7a4f1e" onClick={()=>downloadQuestionarioPDF(client)}>📄 Scarica PDF</Btn>
+                <Btn small color="#7a4f1e" onClick={async ()=>{ await downloadQuestionarioPDF(client); }}>📄 Scarica PDF</Btn>
               </div>
               <QuestionarioView questionario={questionario} onChange={handleQChange} readOnly={false} />
             </div>
