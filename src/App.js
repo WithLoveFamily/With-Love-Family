@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD2-KeCRUKY-REdevBFKO1J3x3bmN6zw78",
@@ -13,18 +14,21 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
-const CONSULTANT_CODE = "admin2024";
+// FIX 1: Codice invito per la registrazione pubblica (rimosso CONSULTANT_CODE dal frontend)
+const REGISTER_INVITE_CODE = "wlsleep";
+
 const DAYS_W1 = ["Giorno 1","Giorno 2","Giorno 3","Giorno 4","Giorno 5","Giorno 6","Giorno 7"];
 const DAYS_W2 = ["Giorno 8","Giorno 9","Giorno 10","Giorno 11","Giorno 12","Giorno 13","Giorno 14"];
 const NOTE_SECTIONS = ["mattina","pomeriggio","pisolino_extra","sera","notte"];
 
 const SECTIONS = [
-  { label:"Mattina", key:"mattina", icon:"🌤️", color:"#FBF0E6", fields:["Svegliato/a","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
-  { label:"Pomeriggio", key:"pomeriggio", icon:"☁️", color:"#EDE8F5", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino"] },
-  { label:"Pisolino Extra", key:"pisolino_extra", icon:"💤", color:"#E6F4EF", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Tot ore giorno"] },
-  { label:"Sera", key:"sera", icon:"🌙", color:"#EDE8F5", fields:["Cena alle","Stanco/a alle ore...","Inizio routine","Fine routine","Stanco/a da 1a10","Addormentato/a","Come","Posizione Stanza"] },
-  { label:"Notte", key:"notte", icon:"⭐", color:"#E8E6F5", fields:["Risveglio 1 - Tempo sveglio/a","Risveglio 1 - Note","Risveglio 2 - Tempo sveglio/a","Risveglio 2 - Note","Risveglio 3 - Tempo sveglio/a","Risveglio 3 - Note","Risveglio 4 - Tempo sveglio/a","Risveglio 4 - Note","Risveglio 5 - Tempo sveglio/a","Risveglio 5 - Note","Risveglio 6 - Tempo sveglio/a","Risveglio 6 - Note","Risveglio 7 - Tempo sveglio/a","Risveglio 7 - Note","Sveglio/a alle","Sveglio/a definitivamente"] }
+  { label:"Mattina", key:"mattina", icon:"üå§Ô∏è", color:"#FBF0E6", fields:["Svegliato/a","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
+  { label:"Pomeriggio", key:"pomeriggio", icon:"‚òÅÔ∏è", color:"#EDE8F5", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino"] },
+  { label:"Pisolino Extra", key:"pisolino_extra", icon:"üí§", color:"#E6F4EF", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Tot ore giorno"] },
+  { label:"Sera", key:"sera", icon:"üåô", color:"#EDE8F5", fields:["Cena alle","Stanco/a alle ore...","Inizio routine","Fine routine","Stanco/a da 1a10","Addormentato/a","Come","Posizione Stanza"] },
+  { label:"Notte", key:"notte", icon:"‚≠ê", color:"#E8E6F5", fields:["Risveglio 1 - Tempo sveglio/a","Risveglio 1 - Note","Risveglio 2 - Tempo sveglio/a","Risveglio 2 - Note","Risveglio 3 - Tempo sveglio/a","Risveglio 3 - Note","Risveglio 4 - Tempo sveglio/a","Risveglio 4 - Note","Risveglio 5 - Tempo sveglio/a","Risveglio 5 - Note","Risveglio 6 - Tempo sveglio/a","Risveglio 6 - Note","Risveglio 7 - Tempo sveglio/a","Risveglio 7 - Note","Sveglio/a alle","Sveglio/a definitivamente"] }
 ];
 
 const QUESTIONARIO_SEZIONI = [
@@ -132,10 +136,12 @@ const GLOBAL_CSS = `
     background:#3a2a28; color:white; border-radius:20px; padding:10px 22px;
     font-size:14px; white-space:nowrap; z-index:9999; font-family:'EB Garamond',serif;
     animation: fadeUp .3s ease, fadeOut .3s ease 1.8s forwards; pointer-events:none; }
+  .wl-toast.error { background: #e53935; }
   @keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   @keyframes fadeOut { from{opacity:1} to{opacity:0} }
   ::-webkit-scrollbar { display:none; }
   input, textarea, button { font-family:'EB Garamond',Georgia,serif; }
+  .wl-btn-accessible:focus-visible { outline: 2px solid #C47878; outline-offset: 2px; border-radius: 8px; }
 `;
 
 function emptyDay() {
@@ -147,54 +153,74 @@ function emptyDay() {
 }
 function emptyDays(days) { const r={}; days.forEach(d=>{r[d]=emptyDay();}); return r; }
 function emptyQuestionario() { const q={}; QUESTIONARIO_SEZIONI.forEach(s=>s.campi.forEach(c=>{q[c.key]="";})); return q; }
-function emptyClient(name,papa) {
-  return { id:Date.now().toString(), name, papa:papa||"",
-    link:Math.random().toString(36).slice(2,10),
-    createdAt:new Date().toLocaleDateString("it-IT"),
-    week1:emptyDays(DAYS_W1), week2:emptyDays(DAYS_W2),
-    questionario:emptyQuestionario() };
-}
-function safeWeek(client,n) {
-  const days=n===1?DAYS_W1:DAYS_W2, wk=client["week"+n]||{}, r={};
-  days.forEach(d=>{r[d]=wk[d]?{...emptyDay(),...wk[d]}:emptyDay();}); return r;
+
+// FIX 2: Usa crypto.randomUUID() invece di Date.now() per evitare collisioni
+function genId() {
+  try { return crypto.randomUUID(); } catch { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 }
 
-async function loadClients() { try{const s=await getDocs(collection(db,"clients"));return s.docs.map(d=>d.data());}catch{return[];} }
-async function saveClient(c) { await setDoc(doc(db,"clients",c.id),c); }
-async function removeClient(id) { await deleteDoc(doc(db,"clients",id)); }
+function emptyClient(name, papa) {
+  return {
+    id: genId(),
+    name, papa: papa || "",
+    link: Math.random().toString(36).slice(2, 10),
+    createdAt: new Date().toLocaleDateString("it-IT"),
+    week1: emptyDays(DAYS_W1),
+    week2: emptyDays(DAYS_W2),
+    questionario: emptyQuestionario()
+  };
+}
+function safeWeek(client, n) {
+  const days = n===1 ? DAYS_W1 : DAYS_W2, wk = client["week"+n] || {}, r = {};
+  days.forEach(d => { r[d] = wk[d] ? {...emptyDay(), ...wk[d]} : emptyDay(); });
+  return r;
+}
+
+// FIX 3: Gestione errori esplicita (non silenziosa)
+async function loadClients() {
+  const s = await getDocs(collection(db, "clients"));
+  return s.docs.map(d => d.data());
+}
+async function saveClient(c) { await setDoc(doc(db, "clients", c.id), c); }
+async function removeClient(id) { await deleteDoc(doc(db, "clients", id)); }
 
 async function downloadPDF(client) {
   try {
-    if(!window.jspdf) await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-    const {jsPDF}=window.jspdf, pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-    const q=client.questionario||emptyQuestionario(), m=16, cw=210-m*2; let y=20;
-    const chk=(n=10)=>{if(y+n>280){pdf.addPage();y=20;}};
-    pdf.setFillColor(196,120,120);pdf.rect(0,0,210,18,"F");
-    pdf.setTextColor(255,255,255);pdf.setFontSize(13);pdf.setFont("helvetica","bold");
-    pdf.text("With Love Family - Questionario Sleep Coaching",m,11);
-    pdf.setFontSize(9);pdf.setFont("helvetica","normal");
-    pdf.text("Cliente: "+client.name+"   |   Data: "+client.createdAt,m,17);y=26;
-    QUESTIONARIO_SEZIONI.forEach(sez=>{
-      chk(14);pdf.setFillColor(176,160,204);pdf.rect(m,y,cw,8,"F");
-      pdf.setTextColor(255,255,255);pdf.setFontSize(9);pdf.setFont("helvetica","bold");pdf.text(sez.titolo,m+3,y+5.5);y+=11;
-      if(sez.note){pdf.setTextColor(120,120,120);pdf.setFontSize(8);pdf.setFont("helvetica","italic");pdf.text(sez.note,m,y);y+=5;}
-      sez.campi.forEach(campo=>{
-        const val=(q[campo.key]&&q[campo.key].trim())?q[campo.key]:"—";chk(18);
-        pdf.setTextColor(60,60,60);pdf.setFontSize(8);pdf.setFont("helvetica","bold");pdf.text(campo.label,m,y);y+=4;
-        pdf.setFillColor(251,240,230);pdf.setDrawColor(220,200,200);
-        const lines=pdf.splitTextToSize(val,cw-6),bh=Math.max(8,lines.length*4.5+3);
-        chk(bh+3);pdf.rect(m,y,cw,bh,"FD");
-        pdf.setTextColor(40,40,40);pdf.setFontSize(8.5);pdf.setFont("helvetica","normal");pdf.text(lines,m+3,y+4.5);y+=bh+5;
-      });y+=2;
+    if (!window.jspdf) await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
     });
-    const tp=pdf.internal.getNumberOfPages();
-    for(let i=1;i<=tp;i++){pdf.setPage(i);pdf.setFontSize(7.5);pdf.setTextColor(160,160,160);pdf.setFont("helvetica","normal");pdf.text("With Love Family - "+client.name,m,292);pdf.text("Pag. "+i+" / "+tp,195,292,{align:"right"});}
+    const {jsPDF} = window.jspdf, pdf = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const q = client.questionario || emptyQuestionario(), m = 16, cw = 210-m*2; let y = 20;
+    const chk = (n=10) => { if (y+n>280) { pdf.addPage(); y=20; } };
+    pdf.setFillColor(196,120,120); pdf.rect(0,0,210,18,"F");
+    pdf.setTextColor(255,255,255); pdf.setFontSize(13); pdf.setFont("helvetica","bold");
+    pdf.text("With Love Family - Questionario Sleep Coaching", m, 11);
+    pdf.setFontSize(9); pdf.setFont("helvetica","normal");
+    pdf.text("Cliente: "+client.name+"   |   Data: "+client.createdAt, m, 17); y=26;
+    QUESTIONARIO_SEZIONI.forEach(sez => {
+      chk(14); pdf.setFillColor(176,160,204); pdf.rect(m,y,cw,8,"F");
+      pdf.setTextColor(255,255,255); pdf.setFontSize(9); pdf.setFont("helvetica","bold"); pdf.text(sez.titolo,m+3,y+5.5); y+=11;
+      if (sez.note) { pdf.setTextColor(120,120,120); pdf.setFontSize(8); pdf.setFont("helvetica","italic"); pdf.text(sez.note,m,y); y+=5; }
+      sez.campi.forEach(campo => {
+        const val = (q[campo.key] && q[campo.key].trim()) ? q[campo.key] : "‚Äî"; chk(18);
+        pdf.setTextColor(60,60,60); pdf.setFontSize(8); pdf.setFont("helvetica","bold"); pdf.text(campo.label,m,y); y+=4;
+        pdf.setFillColor(251,240,230); pdf.setDrawColor(220,200,200);
+        const lines = pdf.splitTextToSize(val,cw-6), bh = Math.max(8,lines.length*4.5+3);
+        chk(bh+3); pdf.rect(m,y,cw,bh,"FD");
+        pdf.setTextColor(40,40,40); pdf.setFontSize(8.5); pdf.setFont("helvetica","normal"); pdf.text(lines,m+3,y+4.5); y+=bh+5;
+      }); y+=2;
+    });
+    const tp = pdf.internal.getNumberOfPages();
+    for (let i=1; i<=tp; i++) { pdf.setPage(i); pdf.setFontSize(7.5); pdf.setTextColor(160,160,160); pdf.setFont("helvetica","normal"); pdf.text("With Love Family - "+client.name,m,292); pdf.text("Pag. "+i+" / "+tp,195,292,{align:"right"}); }
     pdf.save("Questionario_"+client.name.replace(/\s+/g,"_")+".pdf");
-  } catch(e){alert("Errore PDF. Usa un browser aggiornato.");console.error(e);}
+  } catch(e) { alert("Errore PDF. Usa un browser aggiornato."); console.error(e); }
 }
 
-function Icon({name,size=20,color="currentColor"}) {
-  const p={
+function Icon({name, size=20, color="currentColor"}) {
+  const p = {
     back:<polyline points="15,18 9,12 15,6" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
     home:<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>,
     user:<><circle cx="12" cy="8" r="4" fill="none" stroke={color} strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round"/></>,
@@ -231,83 +257,122 @@ function BottomNav({active, onHome, onProfile}) {
   );
 }
 
-function BtnPri({children,onClick,disabled,style={}}) {
-  return <button onClick={onClick} disabled={disabled} style={{background:"linear-gradient(135deg,#E8A8A0,#C89090)",color:"#fff",border:"none",borderRadius:28,padding:"13px 28px",fontSize:17,fontWeight:500,cursor:disabled?"default":"pointer",width:"100%",boxShadow:"0 4px 16px rgba(200,144,144,0.3)",opacity:disabled?0.6:1,...style}}>{children}</button>;
+function BtnPri({children, onClick, disabled, loading, style={}}) {
+  return (
+    <button onClick={onClick} disabled={disabled || loading}
+      style={{background:"linear-gradient(135deg,#E8A8A0,#C89090)",color:"#fff",border:"none",borderRadius:28,padding:"13px 28px",fontSize:17,fontWeight:500,cursor:(disabled||loading)?"default":"pointer",width:"100%",boxShadow:"0 4px 16px rgba(200,144,144,0.3)",opacity:(disabled||loading)?0.7:1,...style}}>
+      {loading ? "Salvataggio..." : children}
+    </button>
+  );
 }
-function BtnGho({children,onClick,style={}}) {
+function BtnGho({children, onClick, style={}}) {
   return <button onClick={onClick} style={{background:"none",border:"1.5px solid "+T.rose,color:T.roseDark,borderRadius:28,padding:"10px 24px",fontSize:16,cursor:"pointer",width:"100%",...style}}>{children}</button>;
 }
-function BtnIco({children,onClick,style={}}) {
+function BtnIco({children, onClick, style={}}) {
   return <button onClick={onClick} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:8,borderRadius:"50%",...style}}>{children}</button>;
 }
-function BtnSm({children,onClick,color=T.roseDark,textColor="#fff",style={}}) {
+function BtnSm({children, onClick, color=T.roseDark, textColor="#fff", style={}}) {
   return <button onClick={onClick} style={{background:color,color:textColor,border:"none",borderRadius:20,padding:"6px 14px",fontSize:14,cursor:"pointer",flexShrink:0,...style}}>{children}</button>;
 }
-function Inp({value,onChange,placeholder,multi,style={}}) {
-  const s={width:"100%",background:T.pink,border:"none",borderRadius:12,padding:"12px 14px",fontSize:16,color:T.text,outline:"none",...style};
-  return multi?<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}}/>:<input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s}/>;
+function Inp({value, onChange, placeholder, multi, style={}}) {
+  const s = {width:"100%",background:T.pink,border:"none",borderRadius:12,padding:"12px 14px",fontSize:16,color:T.text,outline:"none",...style};
+  return multi
+    ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...s,resize:"vertical"}}/>
+    : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s}/>;
 }
-function Lbl({children}) { return <div style={{fontSize:11,fontWeight:500,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>{children}</div>; }
-function Card({children,style={}}) { return <div style={{background:T.card,borderRadius:18,padding:"16px 18px",boxShadow:"0 2px 12px rgba(180,120,120,0.07)",...style}}>{children}</div>; }
-function Toast({show}) { return show?<div className="wl-toast">Salvato con successo ✓</div>:null; }
+function Lbl({children}) {
+  return <div style={{fontSize:11,fontWeight:500,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>{children}</div>;
+}
+function Card({children, style={}}) {
+  return <div style={{background:T.card,borderRadius:18,padding:"16px 18px",boxShadow:"0 2px 12px rgba(180,120,120,0.07)",...style}}>{children}</div>;
+}
 
-function NoteBox({value,onChange,dayKey,fieldKey,label,isGold,placeholder,readOnly}) {
-  const [exp,setExp]=useState(false);
-  const prev=(value||"").slice(0,80),long=(value||"").length>80;
+// FIX 4: Toast con variante errore
+function Toast({show, error=false}) {
+  return show ? <div className={"wl-toast"+(error?" error":"")}>{error ? "Errore nel salvataggio ‚úó" : "Salvato con successo ‚úì"}</div> : null;
+}
+
+// FIX 5: Dialog di conferma custom (sostituisce window.confirm)
+function ConfirmDialog({message, onConfirm, onCancel}) {
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(58,42,40,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:24}}>
+      <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:320,width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
+        <div style={{fontSize:36,marginBottom:12}}>üóëÔ∏è</div>
+        <p style={{fontSize:16,color:T.text,marginBottom:24,fontStyle:"italic",lineHeight:1.6}}>{message}</p>
+        <div style={{display:"flex",gap:10}}>
+          <BtnGho onClick={onCancel} style={{flex:1}}>Annulla</BtnGho>
+          <button onClick={onConfirm} style={{flex:1,background:T.red,color:"#fff",border:"none",borderRadius:28,padding:"10px 24px",fontSize:16,cursor:"pointer",fontFamily:"'EB Garamond',serif"}}>Elimina</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// FIX 6: NoteBox accessibile (role=button, tastiera)
+function NoteBox({value, onChange, dayKey, fieldKey, label, isGold, placeholder, readOnly}) {
+  const [exp, setExp] = useState(false);
+  const prev = (value||"").slice(0,80), long = (value||"").length > 80;
+  const toggle = () => setExp(v => !v);
   return (
     <div style={{flex:1,background:isGold?"#fff8f0":"#f0f4fb",borderRadius:12,padding:10,border:"1px solid "+(isGold?"#E8C0B8":"#C0B0D8")}}>
       <div style={{fontSize:11,fontWeight:500,color:isGold?T.roseDark:T.lilac,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.8px"}}>{label}</div>
-      {exp?(
+      {exp ? (
         <div>
-          <textarea value={value||""} readOnly={readOnly} onChange={e=>{if(!readOnly)onChange(dayKey,fieldKey,e.target.value);}} rows={3}
+          <textarea value={value||""} readOnly={readOnly}
+            onChange={e => { if (!readOnly) onChange(dayKey, fieldKey, e.target.value); }}
+            rows={3}
             style={{width:"100%",background:readOnly?"#f9f6f4":"#fff",border:"none",borderRadius:8,padding:"8px 10px",fontSize:14,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box"}}/>
-          <span onClick={()=>setExp(false)} style={{fontSize:12,color:T.roseDark,cursor:"pointer",display:"inline-block",marginTop:4}}>chiudi ▲</span>
+          <button className="wl-btn-accessible" onClick={toggle}
+            style={{fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:4,background:"none",border:"none",padding:0}}>
+            chiudi ‚ñ≤
+          </button>
         </div>
-      ):(
-        <div onClick={()=>setExp(true)} style={{cursor:"pointer"}}>
+      ) : (
+        <button className="wl-btn-accessible" onClick={toggle}
+          style={{cursor:"pointer",background:"none",border:"none",padding:0,width:"100%",textAlign:"left"}}>
           <div style={{fontSize:13,color:(value&&value.length>0)?T.text:"#c0a0a0",lineHeight:1.5,fontStyle:(value&&value.length>0)?"normal":"italic"}}>
-            {(value&&value.length>0)?(long?prev+"...":value):(readOnly?"—":placeholder)}
+            {(value&&value.length>0) ? (long ? prev+"..." : value) : (readOnly?"‚Äî":placeholder)}
           </div>
-          {long&&<span style={{fontSize:12,color:T.roseDark,display:"inline-block",marginTop:4}}>leggi tutto ▼</span>}
-        </div>
+          {long && <span style={{fontSize:12,color:T.roseDark,display:"inline-block",marginTop:4}}>leggi tutto ‚ñº</span>}
+        </button>
       )}
     </div>
   );
 }
 
-function NoteRow({data,onChange,sectionKey,dayKey,isConsultant}) {
+function NoteRow({data, onChange, sectionKey, dayKey, isConsultant}) {
   return (
     <div style={{marginTop:10,display:"flex",gap:8}}>
       <NoteBox value={data[sectionKey+"__NOTE_CLIENTE"]||""} onChange={onChange} dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CLIENTE"} label="Note mamma" isGold={false} placeholder="Scrivi le tue note..." readOnly={false}/>
-      <NoteBox value={data[sectionKey+"__NOTE_CONSULENTE"]||""} onChange={onChange} dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CONSULENTE"} label="Note consulente" isGold={true} placeholder={isConsultant?"Aggiungi nota...":"—"} readOnly={!isConsultant}/>
+      <NoteBox value={data[sectionKey+"__NOTE_CONSULENTE"]||""} onChange={onChange} dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CONSULENTE"} label="Note consulente" isGold={true} placeholder={isConsultant?"Aggiungi nota...":"‚Äî"} readOnly={!isConsultant}/>
     </div>
   );
 }
 
 function InstallGuide({platform}) {
-  const [open,setOpen]=useState(false);
-  const isApple=platform==="apple";
-  const steps=isApple
-    ?["1. Apri questo link da Safari (non Chrome!)","2. Tocca il pulsante Condividi in basso","3. Scorri e tocca Aggiungi a schermata Home","4. Tocca Aggiungi in alto a destra","L'app apparira come icona sul tuo iPhone!"]
-    :["1. Apri questo link da Chrome","2. Tocca i 3 puntini in alto a destra","3. Tocca Aggiungi a schermata Home","4. Tocca Aggiungi per confermare","L'app apparira come icona sul tuo Android!"];
+  const [open, setOpen] = useState(false);
+  const isApple = platform === "apple";
+  const steps = isApple
+    ? ["1. Apri questo link da Safari (non Chrome!)","2. Tocca il pulsante Condividi in basso","3. Scorri e tocca Aggiungi a schermata Home","4. Tocca Aggiungi in alto a destra","L'app apparira come icona sul tuo iPhone!"]
+    : ["1. Apri questo link da Chrome","2. Tocca i 3 puntini in alto a destra","3. Tocca Aggiungi a schermata Home","4. Tocca Aggiungi per confermare","L'app apparira come icona sul tuo Android!"];
   return (
     <div style={{position:"relative",flex:1}}>
-      <button onClick={()=>setOpen(!open)} style={{background:isApple?"#555":T.sage,color:"#fff",border:"none",borderRadius:20,padding:"10px 14px",fontSize:14,fontWeight:500,cursor:"pointer",width:"100%",fontFamily:"'EB Garamond',serif"}}>
-        {isApple?"🍎 App iPhone":"🤖 App Android"}
+      <button onClick={() => setOpen(!open)} style={{background:isApple?"#555":T.sage,color:"#fff",border:"none",borderRadius:20,padding:"10px 14px",fontSize:14,fontWeight:500,cursor:"pointer",width:"100%",fontFamily:"'EB Garamond',serif"}}>
+        {isApple?"üçé App iPhone":"ü§ñ App Android"}
       </button>
-      {open&&(
+      {open && (
         <div style={{position:"absolute",left:0,right:0,top:46,background:"#fff",border:"1px solid rgba(200,160,160,0.2)",borderRadius:16,padding:16,boxShadow:"0 8px 24px rgba(180,120,120,0.15)",zIndex:100}}>
           <div style={{fontWeight:600,color:isApple?"#555":T.sage,marginBottom:10,fontSize:14}}>{isApple?"Installa su iPhone/iPad":"Installa su Android"}</div>
-          {steps.map((s,i)=><div key={i} style={{fontSize:13,color:T.text,marginBottom:8,lineHeight:1.5}}>{s}</div>)}
-          <div onClick={()=>setOpen(false)} style={{textAlign:"right",fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:8}}>Chiudi ✕</div>
+          {steps.map((s,i) => <div key={i} style={{fontSize:13,color:T.text,marginBottom:8,lineHeight:1.5}}>{s}</div>)}
+          <button onClick={() => setOpen(false)} style={{float:"right",fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:8,background:"none",border:"none",fontFamily:"'EB Garamond',serif"}}>Chiudi ‚úï</button>
         </div>
       )}
     </div>
   );
 }
 
-function CaroDiario({data,onChange,dayKey,isConsultant}) {
-  const cv=data["caro_diario__shared"]||"",qv=data["caro_diario__consulente"]||"";
+function CaroDiario({data, onChange, dayKey, isConsultant}) {
+  const cv = data["caro_diario__shared"]||"", qv = data["caro_diario__consulente"]||"";
   return (
     <div style={{marginTop:20,background:"linear-gradient(135deg,#FBF0E6,#EDE8F5)",borderRadius:18,padding:20,border:"1.5px solid #E8C0B8"}}>
       <div style={{textAlign:"center",marginBottom:14}}>
@@ -316,80 +381,118 @@ function CaroDiario({data,onChange,dayKey,isConsultant}) {
       </div>
       <div style={{marginBottom:14}}>
         <Lbl>La tua voce</Lbl>
-        {isConsultant?(
+        {isConsultant ? (
           <div style={{fontSize:14,color:T.text,background:"rgba(255,255,255,0.7)",borderRadius:12,padding:"10px 14px",lineHeight:1.8,whiteSpace:"pre-wrap",minHeight:60}}>
-            {cv.length>0?cv:<span style={{color:"#c0a0a0",fontStyle:"italic"}}>La cliente non ha ancora scritto nulla.</span>}
+            {cv.length > 0 ? cv : <span style={{color:"#c0a0a0",fontStyle:"italic"}}>La cliente non ha ancora scritto nulla.</span>}
           </div>
-        ):(
+        ) : (
           <textarea value={cv} onChange={e=>onChange(dayKey,"caro_diario__shared",e.target.value)} placeholder="Scrivi qui come ti sei sentita oggi..." rows={4}
             style={{width:"100%",background:"rgba(255,255,255,0.7)",border:"none",borderRadius:12,padding:"10px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box",color:T.text,lineHeight:1.6}}/>
         )}
       </div>
       <div style={{borderTop:"1px dashed rgba(196,120,120,0.3)",margin:"14px 0"}}/>
       <Lbl>In calce - Nota consulente</Lbl>
-      {isConsultant?(
+      {isConsultant ? (
         <textarea value={qv} onChange={e=>onChange(dayKey,"caro_diario__consulente",e.target.value)} placeholder="Scrivi qui la tua nota in calce..." rows={3}
           style={{width:"100%",background:"rgba(237,232,245,0.7)",border:"none",borderRadius:12,padding:"10px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box",color:T.lilac,lineHeight:1.6}}/>
-      ):(
+      ) : (
         <div style={{fontSize:14,color:T.lilac,background:"rgba(237,232,245,0.5)",borderRadius:12,padding:"10px 14px",lineHeight:1.8,whiteSpace:"pre-wrap",minHeight:36}}>
-          {qv.length>0?qv:<span style={{color:"#c0b0d0",fontStyle:"italic"}}>Nessuna nota della consulente ancora.</span>}
+          {qv.length > 0 ? qv : <span style={{color:"#c0b0d0",fontStyle:"italic"}}>Nessuna nota della consulente ancora.</span>}
         </div>
       )}
     </div>
   );
 }
 
-function SectionScreen({section,dayKey,data,onChange,onBack,isConsultant}) {
-  const [toast,setToast]=useState(false);
-  if(!data)return null;
+// FIX 7: SectionScreen ora riceve onSave e lo chiama davvero
+function SectionScreen({section, dayKey, data, onChange, onBack, isConsultant, onSave}) {
+  const [toast, setToast] = useState(false);
+  const [toastError, setToastError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  if (!data) return null;
+
+  async function handleSave() {
+    if (!onSave) return;
+    setSaving(true);
+    try {
+      await onSave();
+      setToast(true);
+      setTimeout(() => setToast(false), 2200);
+    } catch(e) {
+      setToastError(true);
+      setTimeout(() => setToastError(false), 2200);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="slide-enter" style={S.screen}>
-      <div style={{...S.navTop,background:section.color}}>
+      <div style={{...S.navTop, background:section.color}}>
         <BtnIco onClick={onBack}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:26}}>{section.icon}</div>
           <div style={{fontSize:17,fontWeight:500,color:T.text,fontStyle:"italic"}}>{section.label}</div>
           <div style={{fontSize:12,color:T.muted}}>{dayKey}</div>
         </div>
-        <BtnIco onClick={()=>{setToast(true);setTimeout(()=>setToast(false),2200);}}><Icon name="save" size={22} color={T.sage}/></BtnIco>
+        <BtnIco onClick={handleSave} disabled={saving}><Icon name="save" size={22} color={saving?T.muted:T.sage}/></BtnIco>
       </div>
       <div style={S.body}>
         <Card style={{marginBottom:16}}>
-          {section.fields.map((f,i)=>{
-            const isArea=f.toLowerCase().includes("note")||f.toLowerCase().includes("come");
+          {section.fields.map((f, i) => {
+            const isArea = f.toLowerCase().includes("note") || f.toLowerCase().includes("come");
             return (
               <div key={f} style={{paddingBottom:14,marginBottom:i<section.fields.length-1?14:0,borderBottom:i<section.fields.length-1?"1px solid rgba(200,160,160,0.1)":"none"}}>
                 <Lbl>{f}</Lbl>
-                {isArea?(
+                {isArea ? (
                   <textarea value={data[section.key+"__"+f]||""} onChange={e=>onChange(dayKey,section.key+"__"+f,e.target.value)}
                     style={{width:"100%",background:T.pink,border:"none",borderRadius:12,padding:"10px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",resize:"none",minHeight:60,lineHeight:1.5,outline:"none"}} placeholder="Scrivi qui..."/>
-                ):(
+                ) : (
                   <Inp value={data[section.key+"__"+f]||""} onChange={v=>onChange(dayKey,section.key+"__"+f,v)} placeholder={f.toLowerCase().includes("alle")||f.toLowerCase().includes("ora")?"00:00":"..."}/>
                 )}
               </div>
             );
           })}
         </Card>
-        {NOTE_SECTIONS.includes(section.key)&&<NoteRow data={data} onChange={onChange} sectionKey={section.key} dayKey={dayKey} isConsultant={isConsultant}/>}
+        {NOTE_SECTIONS.includes(section.key) && <NoteRow data={data} onChange={onChange} sectionKey={section.key} dayKey={dayKey} isConsultant={isConsultant}/>}
         <div style={{height:24}}/>
-        <BtnPri onClick={()=>{setToast(true);setTimeout(()=>setToast(false),2200);}}>Salva sezione</BtnPri>
+        <BtnPri onClick={handleSave} loading={saving}>Salva sezione</BtnPri>
         <div style={{height:24}}/>
       </div>
       <Toast show={toast}/>
+      <Toast show={toastError} error={true}/>
     </div>
   );
 }
 
-function DayScreen({dayKey,weekData,onChange,onBack,isConsultant,onSave}) {
-  const [activeSection,setActiveSection]=useState(null);
-  const [toast,setToast]=useState(false);
+function DayScreen({dayKey, weekData, onChange, onBack, isConsultant, onSave}) {
+  const [activeSection, setActiveSection] = useState(null);
+  const [toast, setToast] = useState(false);
+  const [toastError, setToastError] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   function countFilled(sec) {
-    return sec.fields.filter(f=>(weekData[dayKey]&&weekData[dayKey][sec.key+"__"+f]||"").trim().length>0).length;
+    return sec.fields.filter(f => (weekData[dayKey] && weekData[dayKey][sec.key+"__"+f] || "").trim().length > 0).length;
   }
 
-  if(activeSection) return (
-    <SectionScreen section={activeSection} dayKey={dayKey} data={weekData[dayKey]} onChange={onChange} onBack={()=>setActiveSection(null)} isConsultant={isConsultant}/>
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await onSave();
+      setToast(true);
+      setTimeout(() => setToast(false), 2200);
+    } catch(e) {
+      setToastError(true);
+      setTimeout(() => setToastError(false), 2200);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // FIX 7b: SectionScreen riceve onSave
+  if (activeSection) return (
+    <SectionScreen section={activeSection} dayKey={dayKey} data={weekData[dayKey]} onChange={onChange}
+      onBack={() => setActiveSection(null)} isConsultant={isConsultant} onSave={onSave}/>
   );
 
   return (
@@ -397,25 +500,25 @@ function DayScreen({dayKey,weekData,onChange,onBack,isConsultant,onSave}) {
       <div style={S.navTop}>
         <BtnIco onClick={onBack}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
         <div style={{textAlign:"center"}}><div style={S.logo}>with love</div><div style={{fontSize:17,fontStyle:"italic",color:T.text}}>{dayKey}</div></div>
-        <BtnIco onClick={()=>{onSave();setToast(true);setTimeout(()=>setToast(false),2200);}}><Icon name="save" size={22} color={T.sage}/></BtnIco>
+        <BtnIco onClick={handleSave} disabled={saving}><Icon name="save" size={22} color={saving?T.muted:T.sage}/></BtnIco>
       </div>
       <div style={S.body}>
         <Card style={{marginBottom:18}}>
           <Lbl>Data</Lbl>
-          <Inp value={(weekData[dayKey]&&weekData[dayKey].date)||""} onChange={v=>onChange(dayKey,"date",v)} placeholder="gg/mm/aaaa"/>
+          <Inp value={(weekData[dayKey] && weekData[dayKey].date)||""} onChange={v=>onChange(dayKey,"date",v)} placeholder="gg/mm/aaaa"/>
         </Card>
         <Lbl style={{marginBottom:10}}>Sezioni da compilare</Lbl>
-        {SECTIONS.map(s=>{
-          const filled=countFilled(s),done=filled===s.fields.length,partial=filled>0&&!done;
+        {SECTIONS.map(s => {
+          const filled = countFilled(s), done = filled === s.fields.length, partial = filled > 0 && !done;
           return (
-            <button key={s.key} onClick={()=>setActiveSection(s)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:18,cursor:"pointer",marginBottom:10,border:"none",fontFamily:"'EB Garamond',serif",textAlign:"left",width:"100%",background:s.color,boxShadow:"0 2px 10px rgba(180,120,120,0.07)"}}>
+            <button key={s.key} onClick={() => setActiveSection(s)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:18,cursor:"pointer",marginBottom:10,border:"none",fontFamily:"'EB Garamond',serif",textAlign:"left",width:"100%",background:s.color,boxShadow:"0 2px 10px rgba(180,120,120,0.07)"}}>
               <span style={{fontSize:26}}>{s.icon}</span>
               <div style={{flex:1}}>
                 <div style={{fontSize:17,fontWeight:500,color:T.text,fontStyle:"italic"}}>{s.label}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:2}}>{s.fields.length} campi · {done?"Completato ✓":partial?filled+"/"+s.fields.length+" compilati":"Da compilare"}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>{s.fields.length} campi ¬∑ {done?"Completato ‚úì":partial?filled+"/"+s.fields.length+" compilati":"Da compilare"}</div>
               </div>
-              {done&&<span style={{width:20,height:20,borderRadius:"50%",background:"#A8D8C0",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Icon name="check" size={12} color="white"/></span>}
-              <span style={{color:T.muted,fontSize:20}}>›</span>
+              {done && <span style={{width:20,height:20,borderRadius:"50%",background:"#A8D8C0",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Icon name="check" size={12} color="white"/></span>}
+              <span style={{color:T.muted,fontSize:20}}>‚Ä∫</span>
             </button>
           );
         })}
@@ -423,35 +526,36 @@ function DayScreen({dayKey,weekData,onChange,onBack,isConsultant,onSave}) {
         <div style={{height:20}}/>
       </div>
       <Toast show={toast}/>
+      <Toast show={toastError} error={true}/>
     </div>
   );
 }
 
-function TableView({weekData,weekNum}) {
-  const days=weekNum===1?DAYS_W1:DAYS_W2;
-  const rows=[];
-  SECTIONS.forEach(sec=>{
+function TableView({weekData, weekNum}) {
+  const days = weekNum===1 ? DAYS_W1 : DAYS_W2;
+  const rows = [];
+  SECTIONS.forEach(sec => {
     rows.push({type:"header",label:sec.label,icon:sec.icon,color:sec.color,secKey:sec.key});
-    sec.fields.forEach(f=>rows.push({type:"field",label:f,fieldKey:sec.key+"__"+f,secKey:sec.key}));
+    sec.fields.forEach(f => rows.push({type:"field",label:f,fieldKey:sec.key+"__"+f,secKey:sec.key}));
   });
-  const getVal=(day,fk)=>(weekData[day]&&weekData[day][fk])||"";
+  const getVal = (day, fk) => (weekData[day] && weekData[day][fk]) || "";
   return (
     <div style={{overflowX:"auto",fontSize:12,padding:"8px 0"}}>
       <table style={{borderCollapse:"collapse",minWidth:600,width:"100%"}}>
         <thead>
           <tr>
             <th style={{background:T.roseDark,color:"#fff",padding:"8px 10px",textAlign:"left",minWidth:140,position:"sticky",left:0,zIndex:2,border:"1px solid rgba(200,160,160,0.2)"}}>ORARI</th>
-            {days.map(d=><th key={d} style={{background:T.roseDark,color:"#fff",padding:"8px 10px",textAlign:"center",border:"1px solid rgba(200,160,160,0.2)",minWidth:90,fontSize:11}}>{d}</th>)}
+            {days.map(d => <th key={d} style={{background:T.roseDark,color:"#fff",padding:"8px 10px",textAlign:"center",border:"1px solid rgba(200,160,160,0.2)",minWidth:90,fontSize:11}}>{d}</th>)}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row,i)=>{
-            if(row.type==="header") return <tr key={i}><td colSpan={days.length+1} style={{background:row.color,color:T.text,fontWeight:600,padding:"6px 10px",fontSize:13,border:"1px solid rgba(200,160,160,0.15)"}}>{row.icon} {row.label}</td></tr>;
-            const bg=i%2===0?"#FFFAF8":"#fff";
+          {rows.map((row, i) => {
+            if (row.type==="header") return <tr key={i}><td colSpan={days.length+1} style={{background:row.color,color:T.text,fontWeight:600,padding:"6px 10px",fontSize:13,border:"1px solid rgba(200,160,160,0.15)"}}>{row.icon} {row.label}</td></tr>;
+            const bg = i%2===0 ? "#FFFAF8" : "#fff";
             return (
               <tr key={i} style={{background:bg}}>
                 <td style={{padding:"4px 10px",fontWeight:500,color:T.text,position:"sticky",left:0,background:bg,border:"1px solid rgba(200,160,160,0.15)",whiteSpace:"nowrap",fontSize:12}}>{row.label}</td>
-                {days.map(d=><td key={d} style={{padding:"4px 8px",border:"1px solid rgba(200,160,160,0.15)",maxWidth:110,color:T.text,wordBreak:"break-word",fontSize:12}}>{getVal(d,row.fieldKey)}</td>)}
+                {days.map(d => <td key={d} style={{padding:"4px 8px",border:"1px solid rgba(200,160,160,0.15)",maxWidth:110,color:T.text,wordBreak:"break-word",fontSize:12}}>{getVal(d,row.fieldKey)}</td>)}
               </tr>
             );
           })}
@@ -461,44 +565,51 @@ function TableView({weekData,weekNum}) {
   );
 }
 
-function QField({label,value,onChange,tipo,readOnly}) {
-  const [open,setOpen]=useState(false);
-  const prev=(value||"").slice(0,60),has=(value||"").length>0;
+// FIX 6b: QField accessibile
+function QField({label, value, onChange, tipo, readOnly}) {
+  const [open, setOpen] = useState(false);
+  const prev = (value||"").slice(0,60), has = (value||"").length > 0;
   return (
     <div style={{marginBottom:12}}>
       <Lbl>{label}</Lbl>
-      {open?(
+      {open ? (
         <div>
           {tipo==="area"
-            ?<textarea value={value||""} readOnly={readOnly} onChange={e=>!readOnly&&onChange(e.target.value)} rows={4} style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"10px 14px",fontSize:14,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box"}} placeholder={readOnly?"—":"Scrivi qui..."}/>
-            :<input value={value||""} readOnly={readOnly} onChange={e=>!readOnly&&onChange(e.target.value)} style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"12px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",boxSizing:"border-box"}} placeholder={readOnly?"—":"Scrivi qui..."}/>
+            ? <textarea value={value||""} readOnly={readOnly} onChange={e => !readOnly && onChange(e.target.value)} rows={4}
+                style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"10px 14px",fontSize:14,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box"}} placeholder={readOnly?"‚Äî":"Scrivi qui..."}/>
+            : <input value={value||""} readOnly={readOnly} onChange={e => !readOnly && onChange(e.target.value)}
+                style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"12px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",boxSizing:"border-box"}} placeholder={readOnly?"‚Äî":"Scrivi qui..."}/>
           }
-          <span onClick={()=>setOpen(false)} style={{fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:4,display:"inline-block"}}>chiudi ▲</span>
+          <button className="wl-btn-accessible" onClick={() => setOpen(false)}
+            style={{fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:4,display:"inline-block",background:"none",border:"none",fontFamily:"'EB Garamond',serif"}}>
+            chiudi ‚ñ≤
+          </button>
         </div>
-      ):(
-        <div onClick={()=>setOpen(true)} style={{cursor:"pointer",background:has?"rgba(255,255,255,0.8)":T.pink,border:"1px solid rgba(200,160,160,0.2)",borderRadius:12,padding:"10px 14px",fontSize:14,color:has?T.text:"#c0a0a0",minHeight:40,fontStyle:has?"normal":"italic"}}>
-          {has?(prev.length<(value||"").length?prev+"...":value):(readOnly?"—":"Tocca per rispondere...")}
-        </div>
+      ) : (
+        <button className="wl-btn-accessible" onClick={() => setOpen(true)}
+          style={{cursor:"pointer",background:has?"rgba(255,255,255,0.8)":T.pink,border:"1px solid rgba(200,160,160,0.2)",borderRadius:12,padding:"10px 14px",fontSize:14,color:has?T.text:"#c0a0a0",minHeight:40,fontStyle:has?"normal":"italic",width:"100%",textAlign:"left",fontFamily:"'EB Garamond',serif"}}>
+          {has ? (prev.length < (value||"").length ? prev+"..." : value) : (readOnly ? "‚Äî" : "Tocca per rispondere...")}
+        </button>
       )}
     </div>
   );
 }
 
-function QuestionarioView({questionario,onChange,readOnly,onBack,onPDF}) {
+function QuestionarioView({questionario, onChange, readOnly, onBack, onPDF}) {
   return (
     <div className="slide-enter" style={S.screen}>
       <div style={S.navTop}>
         <BtnIco onClick={onBack}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
         <div style={{textAlign:"center"}}><div style={S.logo}>with love</div><div style={{fontSize:17,fontStyle:"italic",color:T.text}}>Questionario</div></div>
-        {onPDF?<BtnIco onClick={async()=>await onPDF()}><Icon name="pdf" size={22} color={T.roseDark}/></BtnIco>:<div style={{width:38}}/>}
+        {onPDF ? <BtnIco onClick={async () => await onPDF()}><Icon name="pdf" size={22} color={T.roseDark}/></BtnIco> : <div style={{width:38}}/>}
       </div>
       <div style={S.body}>
-        {!readOnly&&<div style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",borderRadius:14,padding:14,marginBottom:18,fontSize:14,color:T.muted,fontStyle:"italic"}}>Compila il questionario almeno 24 ore prima della consulenza ✨</div>}
-        {QUESTIONARIO_SEZIONI.map((sez,si)=>(
+        {!readOnly && <div style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",borderRadius:14,padding:14,marginBottom:18,fontSize:14,color:T.muted,fontStyle:"italic"}}>Compila il questionario almeno 24 ore prima della consulenza ‚ú®</div>}
+        {QUESTIONARIO_SEZIONI.map((sez, si) => (
           <Card key={si} style={{marginBottom:16}}>
             <div style={{fontWeight:600,fontSize:15,color:T.roseDark,marginBottom:sez.note?4:12,fontStyle:"italic"}}>{sez.titolo}</div>
-            {sez.note&&<div style={{fontSize:12,color:T.muted,marginBottom:10,fontStyle:"italic"}}>{sez.note}</div>}
-            {sez.campi.map(campo=>(
+            {sez.note && <div style={{fontSize:12,color:T.muted,marginBottom:10,fontStyle:"italic"}}>{sez.note}</div>}
+            {sez.campi.map(campo => (
               <QField key={campo.key} label={campo.label} value={questionario[campo.key]||""} onChange={v=>onChange(campo.key,v)} tipo={campo.tipo} readOnly={readOnly}/>
             ))}
           </Card>
@@ -509,32 +620,66 @@ function QuestionarioView({questionario,onChange,readOnly,onBack,onPDF}) {
   );
 }
 
-// ── CLIENT VIEW — gestisce tutte le schermate lato cliente con bottom nav persistente ──
-function ClientView({client,onSave}) {
-  const [screen,setScreen]=useState("home");
-  const [activeDay,setActiveDay]=useState(null);
-  const [activeWeek,setActiveWeek]=useState(1);
-  const [tableWeek,setTableWeek]=useState(1);
-  const [data,setData]=useState({week1:safeWeek(client,1),week2:safeWeek(client,2)});
-  const [questionario,setQuestionario]=useState(client.questionario||emptyQuestionario());
-  const [toast,setToast]=useState(false);
+// ‚îÄ‚îÄ CLIENT VIEW ‚îÄ‚îÄ
+function ClientView({client, onSave}) {
+  const [screen, setScreen] = useState("home");
+  const [activeDay, setActiveDay] = useState(null);
+  const [activeWeek, setActiveWeek] = useState(1);
+  const [tableWeek, setTableWeek] = useState(1);
+  const [data, setData] = useState({week1:safeWeek(client,1), week2:safeWeek(client,2)});
+  const [questionario, setQuestionario] = useState(client.questionario || emptyQuestionario());
+  const [toast, setToast] = useState(false);
 
-  function change(wn,dk,f,v){setData(prev=>({...prev,["week"+wn]:{...prev["week"+wn],[dk]:{...prev["week"+wn][dk],[f]:v}}}));}
-  async function doSave(){await onSave({...data,questionario});setToast(true);setTimeout(()=>setToast(false),2200);}
+  // FIX 8: Auto-save con debounce ‚Äî usa ref per leggere i valori aggiornati nel timer
+  const dataRef = useRef(data);
+  const questionarioRef = useRef(questionario);
+  const autoSaveTimer = useRef(null);
 
-  // Schermate che mostrano la bottom nav
-  const showBottomNav = screen==="home" || screen==="profilo";
+  function triggerAutoSave() {
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        await onSave({...dataRef.current, questionario: questionarioRef.current});
+      } catch(e) {
+        console.error("Auto-save fallito:", e);
+      }
+    }, 2000);
+  }
 
-  // Schermate senza bottom nav (day, table, questionario, section)
-  if(screen==="table") return (
+  function change(wn, dk, f, v) {
+    setData(prev => {
+      const next = {...prev, ["week"+wn]: {...prev["week"+wn], [dk]: {...prev["week"+wn][dk], [f]: v}}};
+      dataRef.current = next;
+      return next;
+    });
+    triggerAutoSave();
+  }
+
+  function changeQuestionario(k, v) {
+    setQuestionario(prev => {
+      const next = {...prev, [k]: v};
+      questionarioRef.current = next;
+      return next;
+    });
+    triggerAutoSave();
+  }
+
+  async function doSave() {
+    clearTimeout(autoSaveTimer.current);
+    await onSave({...dataRef.current, questionario: questionarioRef.current});
+    setToast(true);
+    setTimeout(() => setToast(false), 2200);
+  }
+
+  if (screen==="table") return (
     <div style={S.screen}>
       <div style={S.navTop}>
-        <BtnIco onClick={()=>setScreen("home")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
+        <BtnIco onClick={() => setScreen("home")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
         <div style={{textAlign:"center"}}><div style={S.logo}>with love</div><div style={{fontSize:15,fontStyle:"italic",color:T.text}}>Riepilogo Settimana {tableWeek}</div></div>
         <div style={{width:38}}/>
       </div>
       <div style={{padding:"8px 16px",display:"flex",gap:6}}>
-        {[1,2].map(w=><BtnSm key={w} onClick={()=>setTableWeek(w)} color={tableWeek===w?T.roseDark:"#eee"} textColor={tableWeek===w?"#fff":T.text} style={{fontSize:13}}>Settimana {w}</BtnSm>)}
+        {[1,2].map(w => <BtnSm key={w} onClick={() => setTableWeek(w)} color={tableWeek===w?T.roseDark:"#eee"} textColor={tableWeek===w?"#fff":T.text} style={{fontSize:13}}>Settimana {w}</BtnSm>)}
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"0 8px 16px"}}>
         <TableView weekData={data["week"+tableWeek]} weekNum={tableWeek}/>
@@ -542,91 +687,86 @@ function ClientView({client,onSave}) {
     </div>
   );
 
-  if(screen==="questionario") return (
-    <QuestionarioView questionario={questionario} onChange={(k,v)=>setQuestionario(prev=>({...prev,[k]:v}))} readOnly={false} onBack={()=>setScreen("home")} onPDF={null}/>
+  if (screen==="questionario") return (
+    <QuestionarioView questionario={questionario} onChange={changeQuestionario} readOnly={false} onBack={() => setScreen("home")} onPDF={null}/>
   );
 
-  if(screen==="day"&&activeDay) return (
+  if (screen==="day" && activeDay) return (
     <DayScreen dayKey={activeDay} weekData={data["week"+activeWeek]}
-      onChange={(dk,f,v)=>change(activeWeek,dk,f,v)}
-      onBack={()=>setScreen("home")} isConsultant={false} onSave={doSave}/>
+      onChange={(dk,f,v) => change(activeWeek,dk,f,v)}
+      onBack={() => setScreen("home")} isConsultant={false} onSave={doSave}/>
   );
 
-  // Home e Profilo condividono la bottom nav
   return (
     <div style={{width:"100%",height:"100%",position:"relative",display:"flex",flexDirection:"column"}}>
       <div style={{flex:1,overflow:"hidden",position:"relative"}}>
-
-        {/* HOME */}
         {screen==="home" && (
           <HomeScreen client={client} data={data}
-            onDay={(d,w)=>{setActiveDay(d);setActiveWeek(w);setScreen("day");}}
-            onTable={w=>{setTableWeek(w);setScreen("table");}}
-            onQuestionario={()=>setScreen("questionario")}/>
+            onDay={(d,w) => {setActiveDay(d);setActiveWeek(w);setScreen("day");}}
+            onTable={w => {setTableWeek(w);setScreen("table");}}
+            onQuestionario={() => setScreen("questionario")}/>
         )}
-
-        {/* PROFILO */}
         {screen==="profilo" && (
-          <ProfileScreen
-            client={client}
-            onLogout={()=>{sessionStorage.removeItem("role");window.location.reload();}}
-          />
+          <ProfileScreen client={client} onLogout={() => {sessionStorage.removeItem("role");window.location.reload();}}/>
         )}
-
       </div>
-
-      {/* BOTTOM NAV sempre visibile su home e profilo */}
-      <BottomNav
-        active={screen}
-        onHome={()=>setScreen("home")}
-        onProfile={()=>setScreen("profilo")}
-      />
-
+      <BottomNav active={screen} onHome={() => setScreen("home")} onProfile={() => setScreen("profilo")}/>
       <Toast show={toast}/>
     </div>
   );
 }
 
-// ── HOME SCREEN ──
-function HomeScreen({client,data,onDay,onTable,onQuestionario}) {
-  const [week,setWeek]=useState(1);
-  const days=week===1?DAYS_W1:DAYS_W2;
-  const wkData=data["week"+week];
-  const total=SECTIONS.reduce((a,s)=>a+s.fields.length,0);
-  function countDay(dk){let n=0;SECTIONS.forEach(s=>s.fields.forEach(f=>{if((wkData[dk]&&wkData[dk][s.key+"__"+f]||"").trim())n++;}));return n;}
+// ‚îÄ‚îÄ HOME SCREEN ‚îÄ‚îÄ
+function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
+  const [week, setWeek] = useState(1);
+  const days = week===1 ? DAYS_W1 : DAYS_W2;
+  const wkData = data["week"+week];
+  const total = SECTIONS.reduce((a,s) => a+s.fields.length, 0);
+
+  function countDay(dk) {
+    let n = 0;
+    SECTIONS.forEach(s => s.fields.forEach(f => { if ((wkData[dk] && wkData[dk][s.key+"__"+f] || "").trim()) n++; }));
+    return n;
+  }
 
   return (
     <div style={{...S.screen}}>
       <div style={S.navTop}>
-        <div><div style={S.logo}>with love</div><div style={{fontSize:18,fontStyle:"italic",color:T.text,marginTop:1}}>Ciao, {client.name.split(" ")[0]} 🌸</div></div>
+        <div><div style={S.logo}>with love</div><div style={{fontSize:18,fontStyle:"italic",color:T.text,marginTop:1}}>Ciao, {client.name.split(" ")[0]} üå∏</div></div>
         <div style={{width:38}}/>
       </div>
       <div style={S.body}>
         <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"flex",gap:4,marginBottom:18}}>
-          {[1,2].map(w=><button key={w} onClick={()=>setWeek(w)} style={{flex:1,padding:"8px",borderRadius:12,border:"none",fontSize:15,cursor:"pointer",background:week===w?"white":"none",color:week===w?T.roseDark:T.muted,boxShadow:week===w?"0 2px 8px rgba(180,120,120,0.12)":"none",transition:"all 0.2s"}}>Settimana {w}</button>)}
+          {[1,2].map(w => <button key={w} onClick={() => setWeek(w)} style={{flex:1,padding:"8px",borderRadius:12,border:"none",fontSize:15,cursor:"pointer",background:week===w?"white":"none",color:week===w?T.roseDark:T.muted,boxShadow:week===w?"0 2px 8px rgba(180,120,120,0.12)":"none",transition:"all 0.2s"}}>Settimana {w}</button>)}
         </div>
         <Card style={{background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",marginBottom:18}}>
-          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>Settimana {week} · Riepilogo</div>
-          <div style={{fontSize:15,color:T.text,fontStyle:"italic",marginBottom:14}}>Tieni traccia di ogni giornata del tuo piccolo 💕</div>
+          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>Settimana {week} ¬∑ Riepilogo</div>
+          <div style={{fontSize:15,color:T.text,fontStyle:"italic",marginBottom:14}}>Tieni traccia di ogni giornata del tuo piccolo üíï</div>
           <div style={{display:"flex",gap:8}}>
-            <BtnSm onClick={()=>onTable(week)} color={T.roseDark} style={{flex:1,fontSize:13}}>Vista tabella</BtnSm>
+            <BtnSm onClick={() => onTable(week)} color={T.roseDark} style={{flex:1,fontSize:13}}>Vista tabella</BtnSm>
             <BtnSm onClick={onQuestionario} color={T.lilac} style={{flex:1,fontSize:13}}>Questionario</BtnSm>
           </div>
         </Card>
         <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}}>Seleziona un giorno</div>
-        {days.map(d=>{
-          const filled=countDay(d),pct=Math.round(filled/total*100);
+        {days.map(d => {
+          const filled = countDay(d), pct = Math.round(filled/total*100);
           return (
-            <button key={d} onClick={()=>onDay(d,week)} style={{background:"white",border:"none",borderRadius:18,padding:"14px 16px",cursor:"pointer",textAlign:"left",boxShadow:"0 2px 10px rgba(180,120,120,0.07)",marginBottom:10,width:"100%"}}>
+            <button key={d} onClick={() => onDay(d, week)} style={{background:"white",border:"none",borderRadius:18,padding:"14px 16px",cursor:"pointer",textAlign:"left",boxShadow:"0 2px 10px rgba(180,120,120,0.07)",marginBottom:10,width:"100%"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div>
                   <div style={{fontSize:16,fontWeight:500,color:T.text,fontStyle:"italic"}}>{d}</div>
+                  {/* FIX 9: Barre colorate per sezione in base al riempimento reale */}
                   <div style={{display:"flex",gap:4,marginTop:6}}>
-                    {SECTIONS.map(s=><span key={s.key} style={{width:26,height:5,borderRadius:3,background:filled>0?"#E8A8A0":"#F0E8E8",display:"inline-block"}}/>)}
+                    {SECTIONS.map(s => {
+                      const secFilled = s.fields.filter(f => (wkData[d] && wkData[d][s.key+"__"+f] || "").trim().length > 0).length;
+                      const secDone = secFilled === s.fields.length;
+                      const secPartial = secFilled > 0 && !secDone;
+                      return <span key={s.key} style={{width:26,height:5,borderRadius:3,display:"inline-block",background:secDone?"#A8D8C0":secPartial?"#E8A8A0":"#F0E8E8"}}/>;
+                    })}
                   </div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                  <span style={{fontSize:18}}>{pct===100?"✅":filled>0?"🌟":"○"}</span>
+                  <span style={{fontSize:18}}>{pct===100?"‚úÖ":filled>0?"üåü":"‚óã"}</span>
                   <span style={{fontSize:11,color:T.muted}}>{pct}%</span>
                 </div>
               </div>
@@ -639,8 +779,8 @@ function HomeScreen({client,data,onDay,onTable,onQuestionario}) {
   );
 }
 
-// ── PROFILE SCREEN ──
-function ProfileScreen({client,onLogout}) {
+// ‚îÄ‚îÄ PROFILE SCREEN ‚îÄ‚îÄ
+function ProfileScreen({client, onLogout}) {
   return (
     <div style={{...S.screen}}>
       <div style={S.navTop}>
@@ -650,14 +790,22 @@ function ProfileScreen({client,onLogout}) {
       </div>
       <div style={S.body}>
         <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>🌸</div>
+          <div style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>üå∏</div>
           <div style={{fontSize:22,fontStyle:"italic",color:T.text}}>{client.name}</div>
-          {client.papa&&<div style={{fontSize:14,color:T.muted,marginTop:4}}>con {client.papa} 👨</div>}
+          {client.papa && <div style={{fontSize:14,color:T.muted,marginTop:4}}>con {client.papa} üë®</div>}
         </div>
-        {[{label:"Consulente",value:"With Love Sleep Coaching",icon:"🌙"},{label:"Programma",value:"14 giorni",icon:"📋"},{label:"Iniziato il",value:client.createdAt,icon:"📅"},...(client.email?[{label:"Email",value:client.email,icon:"📧"}]:[])].map(item=>(
+        {[
+          {label:"Consulente",value:"With Love Sleep Coaching",icon:"üåô"},
+          {label:"Programma",value:"14 giorni",icon:"üìã"},
+          {label:"Iniziato il",value:client.createdAt,icon:"üìÖ"},
+          ...(client.email ? [{label:"Email",value:client.email,icon:"üìß"}] : [])
+        ].map(item => (
           <Card key={item.label} style={{marginBottom:10,display:"flex",alignItems:"center",gap:14}}>
             <span style={{fontSize:24}}>{item.icon}</span>
-            <div><div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.6px"}}>{item.label}</div><div style={{fontSize:16,color:T.text,marginTop:2}}>{item.value}</div></div>
+            <div>
+              <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.6px"}}>{item.label}</div>
+              <div style={{fontSize:16,color:T.text,marginTop:2}}>{item.value}</div>
+            </div>
           </Card>
         ))}
         <div style={{height:20}}/>
@@ -667,28 +815,40 @@ function ProfileScreen({client,onLogout}) {
           <InstallGuide platform="android"/>
         </div>
         <BtnGho onClick={onLogout}>Esci dall'account</BtnGho>
-        <div style={{marginTop:12,textAlign:"center"}}><BtnSm onClick={()=>window.location.reload()} color={T.sage} style={{fontSize:13}}>🔄 Aggiorna dati</BtnSm></div>
+        <div style={{marginTop:12,textAlign:"center"}}><BtnSm onClick={() => window.location.reload()} color={T.sage} style={{fontSize:13}}>üîÑ Aggiorna dati</BtnSm></div>
         <div style={{height:24}}/>
       </div>
     </div>
   );
 }
 
-// ── REGISTER PAGE ──
+// ‚îÄ‚îÄ REGISTER PAGE (FIX 10: codice invito obbligatorio) ‚îÄ‚îÄ
 function RegisterPage() {
-  const [nome,setNome]=useState(""),[cognome,setCognome]=useState(""),[email,setEmail]=useState(""),[saving,setSaving]=useState(false),[err,setErr]=useState("");
-  async function handle(){
-    if(!nome.trim()||!cognome.trim()||!email.trim()){setErr("Compila tutti i campi.");return;}
-    if(!/\S+@\S+\.\S+/.test(email)){setErr("Email non valida.");return;}
+  const [nome, setNome] = useState(""), [cognome, setCognome] = useState(""), [email, setEmail] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [saving, setSaving] = useState(false), [err, setErr] = useState("");
+
+  async function handle() {
+    if (!nome.trim() || !cognome.trim() || !email.trim() || !inviteCode.trim()) { setErr("Compila tutti i campi."); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { setErr("Email non valida."); return; }
+    if (inviteCode.trim() !== REGISTER_INVITE_CODE) { setErr("Codice invito non valido. Contatta la consulente."); return; }
     setSaving(true);
-    const c=emptyClient(nome.trim()+" "+cognome.trim(),"");c.email=email.trim();c.registeredAt=new Date().toLocaleDateString("it-IT");
-    await saveClient(c);
-    window.location.href=window.location.origin+window.location.pathname+"?client="+c.link;
+    try {
+      const c = emptyClient(nome.trim()+" "+cognome.trim(), "");
+      c.email = email.trim();
+      c.registeredAt = new Date().toLocaleDateString("it-IT");
+      await saveClient(c);
+      window.location.href = window.location.origin + window.location.pathname + "?client=" + c.link;
+    } catch(e) {
+      setErr("Errore durante la registrazione. Riprova.");
+      setSaving(false);
+    }
   }
+
   return (
-    <div style={{...S.screen,justifyContent:"center",padding:"32px 28px"}}>
+    <div style={{...S.screen, justifyContent:"center", padding:"32px 28px"}}>
       <div style={{textAlign:"center",marginBottom:36}}>
-        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}>🌙</div>
+        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}>üåô</div>
         <div style={S.logo}>with love</div>
         <h1 style={{fontSize:28,fontWeight:500,color:T.text,marginTop:6,fontStyle:"italic"}}>Diario del Sonno</h1>
         <p style={{marginTop:6,color:T.muted,fontStyle:"italic"}}>Registrati al percorso</p>
@@ -697,63 +857,85 @@ function RegisterPage() {
         <div><Lbl>Nome *</Lbl><Inp value={nome} onChange={setNome} placeholder="Il tuo nome..."/></div>
         <div><Lbl>Cognome *</Lbl><Inp value={cognome} onChange={setCognome} placeholder="Il tuo cognome..."/></div>
         <div><Lbl>Email *</Lbl><Inp value={email} onChange={setEmail} placeholder="La tua email..."/></div>
-        {err&&<p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
+        <div><Lbl>Codice invito *</Lbl><Inp value={inviteCode} onChange={setInviteCode} placeholder="Ricevuto dalla consulente..."/></div>
+        {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
-      <BtnPri onClick={handle} disabled={saving}>{saving?"Registrazione in corso...":"Accedi al tuo diario"}</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Il tuo link personale ti sara inviato dalla consulente ✨</p>
+      <BtnPri onClick={handle} loading={saving}>Accedi al tuo diario</BtnPri>
+      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Il codice invito ti viene fornito dalla consulente ‚ú®</p>
     </div>
   );
 }
 
-// ── LOGIN ──
-function LoginScreen({onLogin,clients}) {
-  const [code,setCode]=useState(""),[err,setErr]=useState("");
-  useEffect(()=>{
-    const p=new URLSearchParams(window.location.search),cl=p.get("client");
-    if(cl){const found=clients.find(c=>c.link===cl);if(found)onLogin("client",found);}
-  },[clients]);
+// ‚îÄ‚îÄ LOGIN (FIX 1: Firebase Auth per la consulente) ‚îÄ‚îÄ
+function LoginScreen({onLogin, clients}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search), cl = p.get("client");
+    if (cl) { const found = clients.find(c => c.link===cl); if (found) onLogin("client", found); }
+  }, [clients]);
+
+  async function handleLogin() {
+    if (!email.trim() || !password.trim()) { setErr("Inserisci email e password."); return; }
+    setLoading(true); setErr("");
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      onLogin("consultant");
+    } catch(e) {
+      setErr("Credenziali non corrette.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div style={{...S.screen,justifyContent:"center",padding:"32px 28px"}}>
+    <div style={{...S.screen, justifyContent:"center", padding:"32px 28px"}}>
       <div style={{textAlign:"center",marginBottom:40}}>
-        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}>🌙</div>
+        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}>üåô</div>
         <div style={S.logo}>with love</div>
         <h1 style={{fontSize:28,fontWeight:500,color:T.text,marginTop:6,fontStyle:"italic"}}>Diario del Sonno</h1>
         <p style={{marginTop:6,color:T.muted,fontStyle:"italic"}}>per famiglie speciali</p>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:18,marginBottom:28}}>
-        <div><Lbl>Codice consulente</Lbl><Inp value={code} onChange={setCode} placeholder="Inserisci il codice..."/></div>
-        {err&&<p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
+        <div><Lbl>Email consulente</Lbl><Inp value={email} onChange={setEmail} placeholder="La tua email..."/></div>
+        <div><Lbl>Password</Lbl><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="La tua password..." style={{width:"100%",background:T.pink,border:"none",borderRadius:12,padding:"12px 14px",fontSize:16,color:T.text,outline:"none",fontFamily:"'EB Garamond',serif"}}/></div>
+        {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
-      <BtnPri onClick={()=>{code===CONSULTANT_CODE?onLogin("consultant"):setErr("Codice non corretto.");}}>Accedi al pannello</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Le clienti accedono tramite il loro link personale ✨</p>
+      <BtnPri onClick={handleLogin} loading={loading}>Accedi al pannello</BtnPri>
+      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Le clienti accedono tramite il loro link personale ‚ú®</p>
     </div>
   );
 }
 
-// ── CONSULTANT VIEW ──
-function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLogout}) {
-  const [view,setView]=useState("list");
-  const [selected,setSelected]=useState(null);
-  const [newName,setNewName]=useState(""),[newPapa,setNewPapa]=useState("");
-  const [tab,setTab]=useState("w1");
-  const [activeDay,setActiveDay]=useState(DAYS_W1[0]);
-  const [activeSection,setActiveSection]=useState(null);
-  const [saved,setSaved]=useState(false);
-  const [tableWeek,setTableWeek]=useState(1);
-  const [toast,setToast]=useState(false);
+// ‚îÄ‚îÄ CONSULTANT VIEW ‚îÄ‚îÄ
+function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, onLogout}) {
+  const [view, setView] = useState("list");
+  const [selected, setSelected] = useState(null);
+  const [newName, setNewName] = useState(""), [newPapa, setNewPapa] = useState("");
+  const [tab, setTab] = useState("w1");
+  const [activeDay, setActiveDay] = useState(DAYS_W1[0]);
+  const [activeSection, setActiveSection] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [tableWeek, setTableWeek] = useState(1);
+  const [toast, setToast] = useState(false);
+  // FIX 5: Stato per dialog di conferma
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
-  function openClient(c){
-    const fresh=clients.find(x=>x.id===c.id)||c;
-    setSelected(fresh);setTab("w1");setActiveDay(DAYS_W1[0]);setActiveSection(null);setView("detail");
+  function openClient(c) {
+    const fresh = clients.find(x => x.id===c.id) || c;
+    setSelected(fresh); setTab("w1"); setActiveDay(DAYS_W1[0]); setActiveSection(null); setView("detail");
   }
-  function openTable(c){
-    const fresh=clients.find(x=>x.id===c.id)||c;
-    setSelected(fresh);setTableWeek(1);setView("table");
+  function openTable(c) {
+    const fresh = clients.find(x => x.id===c.id) || c;
+    setSelected(fresh); setTableWeek(1); setView("table");
   }
 
-  useEffect(()=>{
-    if(selected){const fresh=clients.find(c=>c.id===selected.id);if(fresh)setSelected(fresh);}
-  },[clients]);
+  useEffect(() => {
+    if (selected) { const fresh = clients.find(c => c.id===selected.id); if (fresh) setSelected(fresh); }
+  }, [clients]);
 
   const consultantWrapper = (content) => (
     <div style={{width:"100vw",minHeight:"100vh",background:"#f5ede8",overflowY:"auto"}}>
@@ -763,19 +945,19 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
     </div>
   );
 
-  if(view==="table"&&selected) {
-    const client=clients.find(c=>c.id===selected.id)||selected;
-    const wData=safeWeek(client,tableWeek);
+  if (view==="table" && selected) {
+    const client = clients.find(c => c.id===selected.id) || selected;
+    const wData = safeWeek(client, tableWeek);
     return consultantWrapper(
       <div style={{display:"flex",flexDirection:"column",minHeight:"100vh"}}>
         <div style={S.navTop}>
-          <BtnIco onClick={()=>setView("detail")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
+          <BtnIco onClick={() => setView("detail")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
           <div style={{textAlign:"center"}}><div style={S.logo}>Vista Tabella</div><div style={{fontSize:15,fontStyle:"italic",color:T.text}}>{client.name}</div></div>
           <div style={{width:38}}/>
         </div>
         <div style={{padding:"12px 16px",display:"flex",gap:8,flexWrap:"wrap"}}>
-          <BtnSm onClick={()=>setView("list")} color={T.muted} style={{fontSize:13}}>← Lista clienti</BtnSm>
-          {[1,2].map(w=><BtnSm key={w} onClick={()=>setTableWeek(w)} color={tableWeek===w?T.roseDark:"#eee"} textColor={tableWeek===w?"#fff":T.text} style={{fontSize:13}}>Settimana {w}</BtnSm>)}
+          <BtnSm onClick={() => setView("list")} color={T.muted} style={{fontSize:13}}>‚Üê Lista clienti</BtnSm>
+          {[1,2].map(w => <BtnSm key={w} onClick={() => setTableWeek(w)} color={tableWeek===w?T.roseDark:"#eee"} textColor={tableWeek===w?"#fff":T.text} style={{fontSize:13}}>Settimana {w}</BtnSm>)}
         </div>
         <div style={{padding:"0 12px 24px",flex:1}}>
           <TableView weekData={wData} weekNum={tableWeek}/>
@@ -784,72 +966,93 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
     );
   }
 
-  if(view==="detail"&&selected&&activeSection) {
-    const client=clients.find(c=>c.id===selected.id)||selected;
-    const weekNum=tab==="w2"?2:1;
-    const wkData=safeWeek(client,weekNum);
-    function handleChange(dk,f,v){
-      const wk="week"+weekNum;
-      const updated={...client,[wk]:{...safeWeek(client,weekNum),[dk]:{...wkData[dk],[f]:v}}};
-      onUpdateClient(updated);
+  if (view==="detail" && selected && activeSection) {
+    const client = clients.find(c => c.id===selected.id) || selected;
+    const weekNum = tab==="w2" ? 2 : 1;
+    const wkData = safeWeek(client, weekNum);
+
+    // FIX 11: Debounce scritture per la consulente ‚Äî cambia state subito, salva dopo 800ms
+    const debounceRef = useRef(null);
+    function handleChange(dk, f, v) {
+      const wk = "week"+weekNum;
+      const updated = {...client, [wk]: {...safeWeek(client, weekNum), [dk]: {...wkData[dk], [f]: v}}};
+      // Aggiorna stato subito (ottimistico)
+      onUpdateClient(updated, false);
+      // Debounce il salvataggio su Firestore
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => onUpdateClient(updated, true), 800);
     }
+
+    async function handleSectionSave() {
+      clearTimeout(debounceRef.current);
+      const fresh = clients.find(c => c.id===selected.id) || selected;
+      await onUpdateClient(fresh, true);
+    }
+
     return consultantWrapper(
-      <SectionScreen section={activeSection} dayKey={activeDay} data={wkData[activeDay]} onChange={handleChange} onBack={()=>setActiveSection(null)} isConsultant={true}/>
+      <SectionScreen section={activeSection} dayKey={activeDay} data={wkData[activeDay]}
+        onChange={handleChange} onBack={() => setActiveSection(null)}
+        isConsultant={true} onSave={handleSectionSave}/>
     );
   }
 
-  if(view==="detail"&&selected&&tab==="q") {
-    const client=clients.find(c=>c.id===selected.id)||selected;
-    const questionario=client.questionario||emptyQuestionario();
+  if (view==="detail" && selected && tab==="q") {
+    const client = clients.find(c => c.id===selected.id) || selected;
+    const questionario = client.questionario || emptyQuestionario();
     return consultantWrapper(
-      <QuestionarioView questionario={questionario} onChange={(k,v)=>onUpdateClient({...client,questionario:{...questionario,[k]:v}})} readOnly={false}
-        onBack={()=>setTab("w1")} onPDF={async()=>await downloadPDF(client)}/>
+      <QuestionarioView questionario={questionario}
+        onChange={(k,v) => onUpdateClient({...client, questionario:{...questionario,[k]:v}}, false)}
+        readOnly={false} onBack={() => setTab("w1")} onPDF={async () => await downloadPDF(client)}/>
     );
   }
 
-  if(view==="detail"&&selected) {
-    const client=clients.find(c=>c.id===selected.id)||selected;
-    const weekNum=tab==="w2"?2:1;
-    const days=weekNum===1?DAYS_W1:DAYS_W2;
-    const wkData=safeWeek(client,weekNum);
-    const baseUrl=window.location.origin+window.location.pathname;
+  if (view==="detail" && selected) {
+    const client = clients.find(c => c.id===selected.id) || selected;
+    const weekNum = tab==="w2" ? 2 : 1;
+    const days = weekNum===1 ? DAYS_W1 : DAYS_W2;
+    const baseUrl = window.location.origin + window.location.pathname;
 
-    async function handleSave(){await onUpdateClient(client);setSaved(true);setToast(true);setTimeout(()=>{setSaved(false);setToast(false);},2500);}
+    async function handleSave() {
+      await onUpdateClient(client, true);
+      setSaved(true); setToast(true);
+      setTimeout(() => { setSaved(false); setToast(false); }, 2500);
+    }
 
     return consultantWrapper(
       <div style={{display:"flex",flexDirection:"column",minHeight:"100vh"}}>
         <div style={S.navTop}>
-          <BtnIco onClick={()=>setView("list")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
+          <BtnIco onClick={() => setView("list")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
           <div style={{textAlign:"center"}}><div style={S.logo}>with love</div><div style={{fontSize:16,fontStyle:"italic",color:T.text}}>{client.name}</div></div>
-          <BtnIco onClick={()=>openTable(client)}><Icon name="table" size={22} color={T.sage}/></BtnIco>
+          <BtnIco onClick={() => openTable(client)}><Icon name="table" size={22} color={T.sage}/></BtnIco>
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
           <Card style={{marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
-            <div style={{fontSize:12,color:T.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🔗 {baseUrl}?client={client.link}</div>
-            <BtnSm onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(baseUrl+"?client="+client.link)} color={T.roseDark} style={{fontSize:12}}>Copia</BtnSm>
+            <div style={{fontSize:12,color:T.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>üîó {baseUrl}?client={client.link}</div>
+            <BtnSm onClick={() => navigator.clipboard && navigator.clipboard.writeText(baseUrl+"?client="+client.link)} color={T.roseDark} style={{fontSize:12}}>Copia</BtnSm>
           </Card>
           <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"flex",gap:4,marginBottom:16}}>
-            {[{id:"w1",label:"Settimana 1"},{id:"w2",label:"Settimana 2"},{id:"q",label:"Questionario"}].map(t=>(
-              <button key={t.id} onClick={()=>{setTab(t.id);if(t.id==="w1")setActiveDay(DAYS_W1[0]);if(t.id==="w2")setActiveDay(DAYS_W2[0]);}} style={{flex:1,padding:"8px 4px",borderRadius:12,border:"none",fontSize:14,cursor:"pointer",background:tab===t.id?"white":"none",color:tab===t.id?T.roseDark:T.muted,boxShadow:tab===t.id?"0 2px 8px rgba(180,120,120,0.12)":"none"}}>
+            {[{id:"w1",label:"Settimana 1"},{id:"w2",label:"Settimana 2"},{id:"q",label:"Questionario"}].map(t => (
+              <button key={t.id} onClick={() => { setTab(t.id); if(t.id==="w1")setActiveDay(DAYS_W1[0]); if(t.id==="w2")setActiveDay(DAYS_W2[0]); }}
+                style={{flex:1,padding:"8px 4px",borderRadius:12,border:"none",fontSize:14,cursor:"pointer",background:tab===t.id?"white":"none",color:tab===t.id?T.roseDark:T.muted,boxShadow:tab===t.id?"0 2px 8px rgba(180,120,120,0.12)":"none"}}>
                 {t.label}
               </button>
             ))}
           </div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
-            {days.map(d=><button key={d} onClick={()=>setActiveDay(d)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:13,background:activeDay===d?T.roseDark:"#F5EDEB",color:activeDay===d?"white":T.text}}>{d}</button>)}
+            {days.map(d => <button key={d} onClick={() => setActiveDay(d)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:13,background:activeDay===d?T.roseDark:"#F5EDEB",color:activeDay===d?"white":T.text}}>{d}</button>)}
           </div>
-          {SECTIONS.map(s=>(
-            <button key={s.key} onClick={()=>setActiveSection(s)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:18,cursor:"pointer",marginBottom:10,border:"none",fontFamily:"'EB Garamond',serif",textAlign:"left",width:"100%",background:s.color,boxShadow:"0 2px 10px rgba(180,120,120,0.07)"}}>
+          {SECTIONS.map(s => (
+            <button key={s.key} onClick={() => setActiveSection(s)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:18,cursor:"pointer",marginBottom:10,border:"none",fontFamily:"'EB Garamond',serif",textAlign:"left",width:"100%",background:s.color,boxShadow:"0 2px 10px rgba(180,120,120,0.07)"}}>
               <span style={{fontSize:24}}>{s.icon}</span>
               <div style={{flex:1}}>
                 <div style={{fontSize:16,fontWeight:500,color:T.text,fontStyle:"italic"}}>{s.label}</div>
                 <div style={{fontSize:12,color:T.muted}}>{activeDay}</div>
               </div>
-              <span style={{color:T.muted,fontSize:20}}>›</span>
+              <span style={{color:T.muted,fontSize:20}}>‚Ä∫</span>
             </button>
           ))}
           <div style={{marginTop:16}}>
-            <BtnPri onClick={handleSave}>{saved?"✓ Salvato!":"Salva modifiche"}</BtnPri>
+            <BtnPri onClick={handleSave}>{saved?"‚úì Salvato!":"Salva modifiche"}</BtnPri>
           </div>
           <div style={{height:24}}/>
         </div>
@@ -863,74 +1066,136 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
       <div style={S.navTop}>
         <div><div style={S.logo}>with love</div><div style={{fontSize:17,fontStyle:"italic",color:T.text}}>Pannello Consulente</div></div>
         <div style={{display:"flex",gap:4}}>
-          <BtnIco onClick={()=>window.location.reload()}><Icon name="refresh" size={20} color={T.sage}/></BtnIco>
+          <BtnIco onClick={() => window.location.reload()}><Icon name="refresh" size={20} color={T.sage}/></BtnIco>
           <BtnIco onClick={onLogout}><Icon name="logout" size={20} color={T.roseDark}/></BtnIco>
         </div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
         <Card style={{background:"linear-gradient(135deg,#E6F4EF,#EDE8F5)",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.sage,marginBottom:2}}>🔗 Link registrazione pubblica</div><div style={{fontSize:12,color:T.muted}}>Condividilo per nuove clienti</div></div>
-          <BtnSm onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?register=true")} color={T.sage} style={{fontSize:12}}>Copia</BtnSm>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.sage,marginBottom:2}}>üîó Link registrazione pubblica</div><div style={{fontSize:12,color:T.muted}}>Condividilo per nuove clienti</div></div>
+          <BtnSm onClick={() => navigator.clipboard && navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?register=true")} color={T.sage} style={{fontSize:12}}>Copia</BtnSm>
         </Card>
         <Card style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",marginBottom:20}}>
           <div style={{fontSize:15,fontWeight:500,color:T.roseDark,marginBottom:12,fontStyle:"italic"}}>Aggiungi nuova cliente</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <div><Lbl>Nome mamma</Lbl><Inp value={newName} onChange={setNewName} placeholder="Nome..."/></div>
             <div><Lbl>Nome papa</Lbl><Inp value={newPapa} onChange={setNewPapa} placeholder="Nome..."/></div>
-            <BtnPri onClick={()=>{if(newName.trim()){onAddClient(newName.trim(),newPapa.trim());setNewName("");setNewPapa("");}}} style={{marginTop:4}}>Aggiungi cliente</BtnPri>
+            <BtnPri onClick={() => { if (newName.trim()) { onAddClient(newName.trim(), newPapa.trim()); setNewName(""); setNewPapa(""); } }} style={{marginTop:4}}>Aggiungi cliente</BtnPri>
           </div>
         </Card>
-        {clients.length===0?(
-          <div style={{textAlign:"center",color:T.muted,padding:40,fontStyle:"italic"}}>Nessuna cliente ancora 🌸</div>
-        ):clients.map(c=>(
+        {clients.length===0 ? (
+          <div style={{textAlign:"center",color:T.muted,padding:40,fontStyle:"italic"}}>Nessuna cliente ancora üå∏</div>
+        ) : clients.map(c => (
           <Card key={c.id} style={{marginBottom:12,display:"flex",alignItems:"center",gap:12}}>
-            <div style={{width:46,height:46,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🌸</div>
+            <div style={{width:46,height:46,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>üå∏</div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:500,fontSize:16,color:T.text,fontStyle:"italic"}}>{c.name}{c.papa?" · "+c.papa:""}</div>
+              <div style={{fontWeight:500,fontSize:16,color:T.text,fontStyle:"italic"}}>{c.name}{c.papa?" ¬∑ "+c.papa:""}</div>
               <div style={{fontSize:12,color:T.muted}}>Dal {c.createdAt}</div>
-              {c.email&&<div style={{fontSize:12,color:T.sage,marginTop:2}}>📧 {c.email}</div>}
+              {c.email && <div style={{fontSize:12,color:T.sage,marginTop:2}}>üìß {c.email}</div>}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <BtnSm onClick={()=>openClient(c)} color={T.roseDark} style={{fontSize:12}}>Scheda</BtnSm>
-              <BtnSm onClick={()=>openTable(c)} color={T.lilac} style={{fontSize:12}}>Tabella</BtnSm>
-              <BtnSm onClick={()=>{if(window.confirm("Eliminare "+c.name+"?"))onDeleteClient(c.id);}} color="#e0d0d0" textColor={T.muted} style={{fontSize:12}}>Elimina</BtnSm>
+              <BtnSm onClick={() => openClient(c)} color={T.roseDark} style={{fontSize:12}}>Scheda</BtnSm>
+              <BtnSm onClick={() => openTable(c)} color={T.lilac} style={{fontSize:12}}>Tabella</BtnSm>
+              {/* FIX 5: Dialog custom al posto di window.confirm */}
+              <BtnSm onClick={() => setConfirmDelete(c.id)} color="#e0d0d0" textColor={T.muted} style={{fontSize:12}}>Elimina</BtnSm>
             </div>
           </Card>
         ))}
         <div style={{height:24}}/>
       </div>
+      {/* FIX 5: Dialog di conferma */}
+      {confirmDelete && (
+        <ConfirmDialog
+          message={"Eliminare " + (clients.find(c => c.id===confirmDelete)?.name || "") + "? Questa azione √® irreversibile."}
+          onConfirm={() => { onDeleteClient(confirmDelete); setConfirmDelete(null); }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }
 
-// ── APP ROOT ──
+// ‚îÄ‚îÄ APP ROOT ‚îÄ‚îÄ
 export default function App() {
-  const [role,setRole]=useState(()=>sessionStorage.getItem("role")||null);
-  const [clients,setClients]=useState([]);
-  const [activeClient,setActiveClient]=useState(null);
-  const [loading,setLoading]=useState(true);
-  const [isRegister,setIsRegister]=useState(false);
+  const [role, setRole] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [activeClient, setActiveClient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [isRegister, setIsRegister] = useState(false);
 
-  useEffect(()=>{
-    const el=document.createElement("style");el.textContent=GLOBAL_CSS;document.head.appendChild(el);
-    const p=new URLSearchParams(window.location.search);
-    if(p.get("register")==="true")setIsRegister(true);
-    loadClients().then(c=>{setClients(c);setLoading(false);});
-  },[]);
+  // FIX 12: Debounce Firestore per evitare scritture ad ogni keystroke
+  const debounceTimers = useRef({});
 
-  useEffect(()=>{
-    if(!loading){const p=new URLSearchParams(window.location.search),cl=p.get("client");
-      if(cl){const found=clients.find(c=>c.link===cl);if(found){setActiveClient(found);setRole("client");sessionStorage.setItem("role","client");}}}
-  },[loading,clients]);
+  useEffect(() => {
+    const el = document.createElement("style"); el.textContent = GLOBAL_CSS; document.head.appendChild(el);
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("register")==="true") setIsRegister(true);
 
-  async function addClient(n,p){const c=emptyClient(n,p);setClients(prev=>[...prev,c]);await saveClient(c);}
-  async function updateClient(u){setClients(prev=>prev.map(c=>c.id===u.id?u:c));await saveClient(u);if(activeClient&&activeClient.id===u.id)setActiveClient(u);}
-  async function deleteClient(id){setClients(prev=>prev.filter(c=>c.id!==id));await removeClient(id);}
-  async function saveClientData(data){if(!activeClient)return;const u={...activeClient,...data};setActiveClient(u);setClients(prev=>prev.map(c=>c.id===u.id?u:c));await saveClient(u);}
-  function handleLogin(r,cl){setRole(r);sessionStorage.setItem("role",r);if(cl)setActiveClient(cl);}
-  function handleLogout(){setRole(null);sessionStorage.removeItem("role");}
+    // FIX 1: Ripristina sessione consulente via Firebase Auth
+    const unsubAuth = onAuthStateChanged(auth, user => {
+      if (user && !role) {
+        setRole("consultant");
+      }
+    });
 
-  const mobileWrap=(content)=>(
+    // FIX 3: Mostra errore se Firestore non risponde
+    loadClients()
+      .then(c => { setClients(c); setLoading(false); })
+      .catch(e => { setLoadError("Errore di connessione. Controlla la rete e ricarica."); setLoading(false); });
+
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      const p = new URLSearchParams(window.location.search), cl = p.get("client");
+      if (cl) { const found = clients.find(c => c.link===cl); if (found) { setActiveClient(found); setRole("client"); } }
+    }
+  }, [loading, clients]);
+
+  async function addClient(n, p) {
+    const c = emptyClient(n, p);
+    setClients(prev => [...prev, c]);
+    await saveClient(c);
+  }
+
+  // FIX 12: onUpdateClient con salvataggio opzionale (per debounce dalla ConsultantView)
+  async function updateClient(u, saveNow = true) {
+    setClients(prev => prev.map(c => c.id===u.id ? u : c));
+    if (activeClient && activeClient.id===u.id) setActiveClient(u);
+    if (!saveNow) return;
+    // Cancella eventuale timer pendente e salva subito
+    clearTimeout(debounceTimers.current[u.id]);
+    delete debounceTimers.current[u.id];
+    try { await saveClient(u); } catch(e) { console.error("Errore salvataggio:", e); throw e; }
+  }
+
+  async function deleteClient(id) {
+    setClients(prev => prev.filter(c => c.id!==id));
+    await removeClient(id);
+  }
+
+  async function saveClientData(data) {
+    if (!activeClient) return;
+    const u = {...activeClient, ...data};
+    setActiveClient(u);
+    setClients(prev => prev.map(c => c.id===u.id ? u : c));
+    await saveClient(u);
+  }
+
+  function handleLogin(r, cl) {
+    setRole(r);
+    if (cl) setActiveClient(cl);
+  }
+
+  async function handleLogout() {
+    try { await signOut(auth); } catch(e) { /* gi√† disconnesso */ }
+    setRole(null);
+    sessionStorage.removeItem("role");
+  }
+
+  const mobileWrap = (content) => (
     <div style={{width:"100vw",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5ede8"}}>
       <div style={{width:420,height:"min(844px,100vh)",borderRadius:window.innerWidth>500?44:0,overflow:"hidden",boxShadow:window.innerWidth>500?"0 20px 60px rgba(0,0,0,0.2)":"none",position:"relative"}}>
         {content}
@@ -938,10 +1203,30 @@ export default function App() {
     </div>
   );
 
-  if(loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#f5ede8",fontFamily:"'EB Garamond',serif",fontSize:22,color:T.roseDark,fontStyle:"italic"}}>with love ✨</div>;
-  if(isRegister) return mobileWrap(<RegisterPage/>);
-  if(!role) return mobileWrap(<LoginScreen clients={clients} onLogin={handleLogin}/>);
-  if(role==="client"&&activeClient){const fresh=clients.find(c=>c.id===activeClient.id)||activeClient;return mobileWrap(<ClientView client={fresh} onSave={saveClientData}/>);}
-  if(role==="consultant") return <ConsultantView clients={clients} onAddClient={addClient} onUpdateClient={updateClient} onDeleteClient={deleteClient} onLogout={handleLogout}/>;
+  if (loading) return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#f5ede8",fontFamily:"'EB Garamond',serif",fontSize:22,color:T.roseDark,fontStyle:"italic"}}>
+      with love ‚ú®
+    </div>
+  );
+
+  // FIX 3: Schermata di errore se Firestore non risponde
+  if (loadError) return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#f5ede8",fontFamily:"'EB Garamond',serif",padding:32,textAlign:"center"}}>
+      <div style={{fontSize:36,marginBottom:16}}>‚ö†Ô∏è</div>
+      <div style={{fontSize:18,color:T.text,fontStyle:"italic",marginBottom:8}}>Problema di connessione</div>
+      <div style={{fontSize:14,color:T.muted,marginBottom:24}}>{loadError}</div>
+      <BtnSm onClick={() => window.location.reload()} color={T.roseDark} style={{fontSize:15,padding:"10px 28px"}}>Ricarica</BtnSm>
+    </div>
+  );
+
+  if (isRegister) return mobileWrap(<RegisterPage/>);
+  if (!role) return mobileWrap(<LoginScreen clients={clients} onLogin={handleLogin}/>);
+  if (role==="client" && activeClient) {
+    const fresh = clients.find(c => c.id===activeClient.id) || activeClient;
+    return mobileWrap(<ClientView client={fresh} onSave={saveClientData}/>);
+  }
+  if (role==="consultant") return (
+    <ConsultantView clients={clients} onAddClient={addClient} onUpdateClient={updateClient} onDeleteClient={deleteClient} onLogout={handleLogout}/>
+  );
   return null;
 }
