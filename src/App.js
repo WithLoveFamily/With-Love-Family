@@ -24,11 +24,11 @@ const DAYS_W2 = ["Giorno 8","Giorno 9","Giorno 10","Giorno 11","Giorno 12","Gior
 const NOTE_SECTIONS = ["mattina","pomeriggio","pisolino_extra","sera","notte"];
 
 const SECTIONS = [
-  { label:"Mattina", key:"mattina", icon:"üå§Ô∏è", color:"#FBF0E6", fields:["Svegliato/a","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
-  { label:"Pomeriggio", key:"pomeriggio", icon:"‚òÅÔ∏è", color:"#EDE8F5", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino"] },
-  { label:"Pisolino Extra", key:"pisolino_extra", icon:"üí§", color:"#E6F4EF", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Tot ore giorno"] },
-  { label:"Sera", key:"sera", icon:"üåô", color:"#EDE8F5", fields:["Cena alle","Stanco/a alle ore...","Inizio routine","Fine routine","Stanco/a da 1a10","Addormentato/a","Come","Posizione Stanza"] },
-  { label:"Notte", key:"notte", icon:"‚≠ê", color:"#E8E6F5", fields:["Risveglio 1 - Tempo sveglio/a","Risveglio 1 - Note","Risveglio 2 - Tempo sveglio/a","Risveglio 2 - Note","Risveglio 3 - Tempo sveglio/a","Risveglio 3 - Note","Risveglio 4 - Tempo sveglio/a","Risveglio 4 - Note","Risveglio 5 - Tempo sveglio/a","Risveglio 5 - Note","Risveglio 6 - Tempo sveglio/a","Risveglio 6 - Note","Risveglio 7 - Tempo sveglio/a","Risveglio 7 - Note","Sveglio/a alle","Sveglio/a definitivamente"] }
+  { label:"Mattina", key:"mattina", icon:"", color:"#FBF0E6", fields:["Svegliato/a","Colazione","Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Pranzo alle"] },
+  { label:"Pomeriggio", key:"pomeriggio", icon:"", color:"#EDE8F5", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino"] },
+  { label:"Pisolino Extra", key:"pisolino_extra", icon:"", color:"#E6F4EF", fields:["Stanco/a","Inizio routine","Messo/a a letto","Addormentato/a","Come","Svegliato/a alle","Totale pisolino","Tot ore giorno"] },
+  { label:"Sera", key:"sera", icon:"", color:"#EDE8F5", fields:["Cena alle","Stanco/a alle ore...","Inizio routine","Fine routine","Stanco/a da 1a10","Addormentato/a","Come","Posizione Stanza"] },
+  { label:"Notte", key:"notte", icon:"", color:"#E8E6F5", fields:["Risveglio 1 - Tempo sveglio/a","Risveglio 1 - Note","Risveglio 2 - Tempo sveglio/a","Risveglio 2 - Note","Risveglio 3 - Tempo sveglio/a","Risveglio 3 - Note","Risveglio 4 - Tempo sveglio/a","Risveglio 4 - Note","Risveglio 5 - Tempo sveglio/a","Risveglio 5 - Note","Risveglio 6 - Tempo sveglio/a","Risveglio 6 - Note","Risveglio 7 - Tempo sveglio/a","Risveglio 7 - Note","Sveglio/a alle","Sveglio/a definitivamente"] }
 ];
 
 const QUESTIONARIO_SEZIONI = [
@@ -129,7 +129,7 @@ const T = {
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'EB Garamond', Georgia, serif; background: #f5ede8; -webkit-font-smoothing: antialiased; }
+  body { font-family: 'EB Garamond', Georgia, serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; background: #f5ede8; -webkit-font-smoothing: antialiased; }
   .slide-enter { animation: slideIn 0.25s cubic-bezier(.4,0,.2,1) forwards; }
   @keyframes slideIn { from { transform: translateX(40px); opacity:0; } to { transform: translateX(0); opacity:1; } }
   .wl-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
@@ -140,7 +140,7 @@ const GLOBAL_CSS = `
   @keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   @keyframes fadeOut { from{opacity:1} to{opacity:0} }
   ::-webkit-scrollbar { display:none; }
-  input, textarea, button { font-family:'EB Garamond',Georgia,serif; }
+  input, textarea, button { font-family:'EB Garamond',Georgia,serif,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji'; }
   .wl-btn-accessible:focus-visible { outline: 2px solid #C47878; outline-offset: 2px; border-radius: 8px; }
 `;
 
@@ -297,7 +297,7 @@ function ConfirmDialog({message, onConfirm, onCancel}) {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(58,42,40,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:24}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:320,width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
-        <div style={{fontSize:36,marginBottom:12}}>üóëÔ∏è</div>
+        <div style={{fontSize:36,marginBottom:12}}></div>
         <p style={{fontSize:16,color:T.text,marginBottom:24,fontStyle:"italic",lineHeight:1.6}}>{message}</p>
         <div style={{display:"flex",gap:10}}>
           <BtnGho onClick={onCancel} style={{flex:1}}>Annulla</BtnGho>
@@ -358,7 +358,7 @@ function InstallGuide({platform}) {
   return (
     <div style={{position:"relative",flex:1}}>
       <button onClick={() => setOpen(!open)} style={{background:isApple?"#555":T.sage,color:"#fff",border:"none",borderRadius:20,padding:"10px 14px",fontSize:14,fontWeight:500,cursor:"pointer",width:"100%",fontFamily:"'EB Garamond',serif"}}>
-        {isApple?"üçé App iPhone":"ü§ñ App Android"}
+        {isApple?"iOS App iPhone":"Android App Android"}
       </button>
       {open && (
         <div style={{position:"absolute",left:0,right:0,top:46,background:"#fff",border:"1px solid rgba(200,160,160,0.2)",borderRadius:16,padding:16,boxShadow:"0 8px 24px rgba(180,120,120,0.15)",zIndex:100}}>
@@ -604,7 +604,7 @@ function QuestionarioView({questionario, onChange, readOnly, onBack, onPDF}) {
         {onPDF ? <BtnIco onClick={async () => await onPDF()}><Icon name="pdf" size={22} color={T.roseDark}/></BtnIco> : <div style={{width:38}}/>}
       </div>
       <div style={S.body}>
-        {!readOnly && <div style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",borderRadius:14,padding:14,marginBottom:18,fontSize:14,color:T.muted,fontStyle:"italic"}}>Compila il questionario almeno 24 ore prima della consulenza ‚ú®</div>}
+        {!readOnly && <div style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",borderRadius:14,padding:14,marginBottom:18,fontSize:14,color:T.muted,fontStyle:"italic"}}>Compila il questionario almeno 24 ore prima della consulenza </div>}
         {QUESTIONARIO_SEZIONI.map((sez, si) => (
           <Card key={si} style={{marginBottom:16}}>
             <div style={{fontWeight:600,fontSize:15,color:T.roseDark,marginBottom:sez.note?4:12,fontStyle:"italic"}}>{sez.titolo}</div>
@@ -732,7 +732,7 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
   return (
     <div style={{...S.screen}}>
       <div style={S.navTop}>
-        <div><div style={S.logo}>with love</div><div style={{fontSize:18,fontStyle:"italic",color:T.text,marginTop:1}}>Ciao, {client.name.split(" ")[0]} üå∏</div></div>
+        <div><div style={S.logo}>with love</div><div style={{fontSize:18,fontStyle:"italic",color:T.text,marginTop:1}}>Ciao, {client.name.split(" ")[0]} </div></div>
         <div style={{width:38}}/>
       </div>
       <div style={S.body}>
@@ -741,7 +741,7 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
         </div>
         <Card style={{background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",marginBottom:18}}>
           <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>Settimana {week} ¬∑ Riepilogo</div>
-          <div style={{fontSize:15,color:T.text,fontStyle:"italic",marginBottom:14}}>Tieni traccia di ogni giornata del tuo piccolo üíï</div>
+          <div style={{fontSize:15,color:T.text,fontStyle:"italic",marginBottom:14}}>Tieni traccia di ogni giornata del tuo piccolo </div>
           <div style={{display:"flex",gap:8}}>
             <BtnSm onClick={() => onTable(week)} color={T.roseDark} style={{flex:1,fontSize:13}}>Vista tabella</BtnSm>
             <BtnSm onClick={onQuestionario} color={T.lilac} style={{flex:1,fontSize:13}}>Questionario</BtnSm>
@@ -766,7 +766,7 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
                   </div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                  <span style={{fontSize:18}}>{pct===100?"‚úÖ":filled>0?"üåü":"‚óã"}</span>
+                  <span style={{fontSize:18}}>{pct===100?"":filled>0?"":"‚óã"}</span>
                   <span style={{fontSize:11,color:T.muted}}>{pct}%</span>
                 </div>
               </div>
@@ -790,15 +790,15 @@ function ProfileScreen({client, onLogout}) {
       </div>
       <div style={S.body}>
         <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>üå∏</div>
+          <div style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}></div>
           <div style={{fontSize:22,fontStyle:"italic",color:T.text}}>{client.name}</div>
-          {client.papa && <div style={{fontSize:14,color:T.muted,marginTop:4}}>con {client.papa} üë®</div>}
+          {client.papa && <div style={{fontSize:14,color:T.muted,marginTop:4}}>con {client.papa} </div>}
         </div>
         {[
-          {label:"Consulente",value:"With Love Sleep Coaching",icon:"üåô"},
-          {label:"Programma",value:"14 giorni",icon:"üìã"},
-          {label:"Iniziato il",value:client.createdAt,icon:"üìÖ"},
-          ...(client.email ? [{label:"Email",value:client.email,icon:"üìß"}] : [])
+          {label:"Consulente",value:"With Love Sleep Coaching",icon:""},
+          {label:"Programma",value:"14 giorni",icon:""},
+          {label:"Iniziato il",value:client.createdAt,icon:""},
+          ...(client.email ? [{label:"Email",value:client.email,icon:""}] : [])
         ].map(item => (
           <Card key={item.label} style={{marginBottom:10,display:"flex",alignItems:"center",gap:14}}>
             <span style={{fontSize:24}}>{item.icon}</span>
@@ -815,7 +815,7 @@ function ProfileScreen({client, onLogout}) {
           <InstallGuide platform="android"/>
         </div>
         <BtnGho onClick={onLogout}>Esci dall'account</BtnGho>
-        <div style={{marginTop:12,textAlign:"center"}}><BtnSm onClick={() => window.location.reload()} color={T.sage} style={{fontSize:13}}>üîÑ Aggiorna dati</BtnSm></div>
+        <div style={{marginTop:12,textAlign:"center"}}><BtnSm onClick={() => window.location.reload()} color={T.sage} style={{fontSize:13}}> Aggiorna dati</BtnSm></div>
         <div style={{height:24}}/>
       </div>
     </div>
@@ -848,7 +848,7 @@ function RegisterPage() {
   return (
     <div style={{...S.screen, justifyContent:"center", padding:"32px 28px"}}>
       <div style={{textAlign:"center",marginBottom:36}}>
-        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}>üåô</div>
+        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}></div>
         <div style={S.logo}>with love</div>
         <h1 style={{fontSize:28,fontWeight:500,color:T.text,marginTop:6,fontStyle:"italic"}}>Diario del Sonno</h1>
         <p style={{marginTop:6,color:T.muted,fontStyle:"italic"}}>Registrati al percorso</p>
@@ -861,7 +861,7 @@ function RegisterPage() {
         {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
       <BtnPri onClick={handle} loading={saving}>Accedi al tuo diario</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Il codice invito ti viene fornito dalla consulente ‚ú®</p>
+      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Il codice invito ti viene fornito dalla consulente </p>
     </div>
   );
 }
@@ -894,7 +894,7 @@ function LoginScreen({onLogin, clients}) {
   return (
     <div style={{...S.screen, justifyContent:"center", padding:"32px 28px"}}>
       <div style={{textAlign:"center",marginBottom:40}}>
-        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}>üåô</div>
+        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}></div>
         <div style={S.logo}>with love</div>
         <h1 style={{fontSize:28,fontWeight:500,color:T.text,marginTop:6,fontStyle:"italic"}}>Diario del Sonno</h1>
         <p style={{marginTop:6,color:T.muted,fontStyle:"italic"}}>per famiglie speciali</p>
@@ -905,7 +905,7 @@ function LoginScreen({onLogin, clients}) {
         {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
       <BtnPri onClick={handleLogin} loading={loading}>Accedi al pannello</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Le clienti accedono tramite il loro link personale ‚ú®</p>
+      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Le clienti accedono tramite il loro link personale </p>
     </div>
   );
 }
@@ -924,6 +924,23 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
   // FIX 5: Stato per dialog di conferma
   const [confirmDelete, setConfirmDelete] = useState(null);
   const debounceRef = useRef(null);
+  const weekNum = tab==="w2" ? 2 : 1;
+
+  function getClient() { return selected ? (clients.find(c => c.id===selected.id) || selected) : null; }
+
+  function handleChange(dk, f, v) {
+    const client = getClient(); if (!client) return;
+    const wk = "week"+weekNum;
+    const updated = {...client, [wk]: {...safeWeek(client, weekNum), [dk]: {...safeWeek(client, weekNum)[dk], [f]: v}}};
+    onUpdateClient(updated, false);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => onUpdateClient(updated, true), 800);
+  }
+
+  async function handleSectionSave() {
+    clearTimeout(debounceRef.current);
+    const client = getClient(); if (client) await onUpdateClient(client, true);
+  }
 
   function openClient(c) {
     const fresh = clients.find(x => x.id===c.id) || c;
@@ -968,26 +985,8 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
   }
 
   if (view==="detail" && selected && activeSection) {
-    const client = clients.find(c => c.id===selected.id) || selected;
-    const weekNum = tab==="w2" ? 2 : 1;
+    const client = getClient();
     const wkData = safeWeek(client, weekNum);
-
-    function handleChange(dk, f, v) {
-      const wk = "week"+weekNum;
-      const updated = {...client, [wk]: {...safeWeek(client, weekNum), [dk]: {...wkData[dk], [f]: v}}};
-      // Aggiorna stato subito (ottimistico)
-      onUpdateClient(updated, false);
-      // Debounce il salvataggio su Firestore
-      clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => onUpdateClient(updated, true), 800);
-    }
-
-    async function handleSectionSave() {
-      clearTimeout(debounceRef.current);
-      const fresh = clients.find(c => c.id===selected.id) || selected;
-      await onUpdateClient(fresh, true);
-    }
-
     return consultantWrapper(
       <SectionScreen section={activeSection} dayKey={activeDay} data={wkData[activeDay]}
         onChange={handleChange} onBack={() => setActiveSection(null)}
@@ -1006,12 +1005,12 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
   }
 
   if (view==="detail" && selected) {
-    const client = clients.find(c => c.id===selected.id) || selected;
-    const weekNum = tab==="w2" ? 2 : 1;
+    const client = getClient();
     const days = weekNum===1 ? DAYS_W1 : DAYS_W2;
     const baseUrl = window.location.origin + window.location.pathname;
 
     async function handleSave() {
+      clearTimeout(debounceRef.current);
       await onUpdateClient(client, true);
       setSaved(true); setToast(true);
       setTimeout(() => { setSaved(false); setToast(false); }, 2500);
@@ -1026,7 +1025,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
           <Card style={{marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
-            <div style={{fontSize:12,color:T.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>üîó {baseUrl}?client={client.link}</div>
+            <div style={{fontSize:12,color:T.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}> {baseUrl}?client={client.link}</div>
             <BtnSm onClick={() => navigator.clipboard && navigator.clipboard.writeText(baseUrl+"?client="+client.link)} color={T.roseDark} style={{fontSize:12}}>Copia</BtnSm>
           </Card>
           <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"flex",gap:4,marginBottom:16}}>
@@ -1050,6 +1049,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
               <span style={{color:T.muted,fontSize:20}}>‚Ä∫</span>
             </button>
           ))}
+          <CaroDiario data={safeWeek(client, weekNum)[activeDay]||emptyDay()} onChange={handleChange} dayKey={activeDay} isConsultant={true}/>
           <div style={{marginTop:16}}>
             <BtnPri onClick={handleSave}>{saved?"‚úì Salvato!":"Salva modifiche"}</BtnPri>
           </div>
@@ -1071,7 +1071,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
         <Card style={{background:"linear-gradient(135deg,#E6F4EF,#EDE8F5)",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.sage,marginBottom:2}}>üîó Link registrazione pubblica</div><div style={{fontSize:12,color:T.muted}}>Condividilo per nuove clienti</div></div>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.sage,marginBottom:2}}> Link registrazione pubblica</div><div style={{fontSize:12,color:T.muted}}>Condividilo per nuove clienti</div></div>
           <BtnSm onClick={() => navigator.clipboard && navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?register=true")} color={T.sage} style={{fontSize:12}}>Copia</BtnSm>
         </Card>
         <Card style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",marginBottom:20}}>
@@ -1083,14 +1083,14 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
           </div>
         </Card>
         {clients.length===0 ? (
-          <div style={{textAlign:"center",color:T.muted,padding:40,fontStyle:"italic"}}>Nessuna cliente ancora üå∏</div>
+          <div style={{textAlign:"center",color:T.muted,padding:40,fontStyle:"italic"}}>Nessuna cliente ancora </div>
         ) : clients.map(c => (
           <Card key={c.id} style={{marginBottom:12,display:"flex",alignItems:"center",gap:12}}>
-            <div style={{width:46,height:46,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>üå∏</div>
+            <div style={{width:46,height:46,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}></div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontWeight:500,fontSize:16,color:T.text,fontStyle:"italic"}}>{c.name}{c.papa?" ¬∑ "+c.papa:""}</div>
               <div style={{fontSize:12,color:T.muted}}>Dal {c.createdAt}</div>
-              {c.email && <div style={{fontSize:12,color:T.sage,marginTop:2}}>üìß {c.email}</div>}
+              {c.email && <div style={{fontSize:12,color:T.sage,marginTop:2}}> {c.email}</div>}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               <BtnSm onClick={() => openClient(c)} color={T.roseDark} style={{fontSize:12}}>Scheda</BtnSm>
@@ -1204,14 +1204,14 @@ export default function App() {
 
   if (loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#f5ede8",fontFamily:"'EB Garamond',serif",fontSize:22,color:T.roseDark,fontStyle:"italic"}}>
-      with love ‚ú®
+      with love 
     </div>
   );
 
   // FIX 3: Schermata di errore se Firestore non risponde
   if (loadError) return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#f5ede8",fontFamily:"'EB Garamond',serif",padding:32,textAlign:"center"}}>
-      <div style={{fontSize:36,marginBottom:16}}>‚ö†Ô∏è</div>
+      <div style={{fontSize:36,marginBottom:16}}>‚ö†</div>
       <div style={{fontSize:18,color:T.text,fontStyle:"italic",marginBottom:8}}>Problema di connessione</div>
       <div style={{fontSize:14,color:T.muted,marginBottom:24}}>{loadError}</div>
       <BtnSm onClick={() => window.location.reload()} color={T.roseDark} style={{fontSize:15,padding:"10px 28px"}}>Ricarica</BtnSm>
