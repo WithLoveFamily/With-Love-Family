@@ -923,6 +923,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
   const [toast, setToast] = useState(false);
   // FIX 5: Stato per dialog di conferma
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const debounceRef = useRef(null);
 
   function openClient(c) {
     const fresh = clients.find(x => x.id===c.id) || c;
@@ -971,8 +972,6 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
     const weekNum = tab==="w2" ? 2 : 1;
     const wkData = safeWeek(client, weekNum);
 
-    // FIX 11: Debounce scritture per la consulente ‚Äî cambia state subito, salva dopo 800ms
-    const debounceRef = useRef(null);
     function handleChange(dk, f, v) {
       const wk = "week"+weekNum;
       const updated = {...client, [wk]: {...safeWeek(client, weekNum), [dk]: {...wkData[dk], [f]: v}}};
