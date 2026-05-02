@@ -719,18 +719,23 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
 
   if(view==="table"&&selected) {
     const client=clients.find(c=>c.id===selected.id)||selected;
+    const w1=safeWeek(client,1), w2=safeWeek(client,2);
     return (
-      <div style={screenStyle}>
-        <div style={navTop}>
-          <BtnIcon onClick={()=>setView("detail")}><Icon name="back" size={22} color={T.roseDark}/></BtnIcon>
-          <div style={{textAlign:"center"}}><div style={logoMark}>Vista Tabella</div><div style={{fontSize:15,fontStyle:"italic",color:T.text}}>{client.name}</div></div>
-          <div style={{width:38}}/>
+      <div style={{width:"100vw",height:"100vh",background:"#f5ede8",overflow:"auto"}}>
+        <div style={{maxWidth:700,margin:"0 auto",minHeight:"100vh",background:T.bg}}>
+          <div style={navTop}>
+            <BtnIcon onClick={()=>setView("detail")}><Icon name="back" size={22} color={T.roseDark}/></BtnIcon>
+            <div style={{textAlign:"center"}}><div style={logoMark}>Vista Tabella</div><div style={{fontSize:15,fontStyle:"italic",color:T.text}}>{client.name}</div></div>
+            <div style={{width:38}}/>
+          </div>
+          <div style={{padding:"8px 16px",display:"flex",gap:6}}>
+            <BtnSmall onClick={()=>setView("list")} color={T.muted} style={{fontSize:13}}>← Lista</BtnSmall>
+            {[1,2].map(w=><BtnSmall key={w} onClick={()=>setTableWeek(w)} color={tableWeek===w?T.roseDark:"#ddd"} style={{fontSize:13,color:tableWeek===w?"white":T.text}}>Settimana {w}</BtnSmall>)}
+          </div>
+          <div style={{padding:"0 8px 24px"}}>
+            <TableView weekData={tableWeek===1?w1:w2} weekNum={tableWeek} onBack={()=>setView("detail")}/>
+          </div>
         </div>
-        <div style={{padding:"8px",display:"flex",gap:6}}>
-          <BtnSmall onClick={()=>setView("list")} color={T.muted} style={{fontSize:13}}>← Lista</BtnSmall>
-          {[1,2].map(w=><BtnSmall key={w} onClick={()=>setTableWeek(w)} color={tableWeek===w?T.roseDark:"#ddd"} style={{fontSize:13,color:tableWeek===w?"white":T.text}}>Sett. {w}</BtnSmall>)}
-        </div>
-        <TableView weekData={safeWeek(client,tableWeek)} weekNum={tableWeek} onBack={()=>setView("detail")}/>
       </div>
     );
   }
