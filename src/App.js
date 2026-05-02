@@ -115,7 +115,6 @@ const QUESTIONARIO_SEZIONI = [
   ]}
 ];
 
-// ── THEME ──
 const T = {
   pink:"#FAE8E6", lavender:"#EDE8F5", mint:"#E6F4EF", peach:"#FBF0E6",
   rose:"#E8A0A0", roseDark:"#C47878", sage:"#8ABAAA", lilac:"#B0A0CC",
@@ -139,7 +138,6 @@ const GLOBAL_CSS = `
   input, textarea, button { font-family:'EB Garamond',Georgia,serif; }
 `;
 
-// ── DATA HELPERS ──
 function emptyDay() {
   const d = { date:"", note:"" };
   SECTIONS.forEach(s => s.fields.forEach(f => { d[s.key+"__"+f]=""; }));
@@ -161,12 +159,10 @@ function safeWeek(client,n) {
   days.forEach(d=>{r[d]=wk[d]?{...emptyDay(),...wk[d]}:emptyDay();}); return r;
 }
 
-// ── FIREBASE ──
 async function loadClients() { try{const s=await getDocs(collection(db,"clients"));return s.docs.map(d=>d.data());}catch{return[];} }
 async function saveClient(c) { await setDoc(doc(db,"clients",c.id),c); }
 async function removeClient(id) { await deleteDoc(doc(db,"clients",id)); }
 
-// ── PDF ──
 async function downloadPDF(client) {
   try {
     if(!window.jspdf) await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
@@ -197,7 +193,6 @@ async function downloadPDF(client) {
   } catch(e){alert("Errore PDF. Usa un browser aggiornato.");console.error(e);}
 }
 
-// ── ICONS ──
 function Icon({name,size=20,color="currentColor"}) {
   const p={
     back:<polyline points="15,18 9,12 15,6" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
@@ -214,13 +209,27 @@ function Icon({name,size=20,color="currentColor"}) {
   return <svg width={size} height={size} viewBox="0 0 24 24">{p[name]||null}</svg>;
 }
 
-// ── PRIMITIVES ──
 const S = {
   screen: { width:"100%", height:"100%", background:T.bg, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative", fontFamily:"'EB Garamond',Georgia,serif" },
   navTop: { padding:"12px 20px 10px", display:"flex", alignItems:"center", justifyContent:"space-between", background:T.bg, borderBottom:"1px solid rgba(200,160,160,0.15)", flexShrink:0 },
   body: { flex:1, overflowY:"auto", overflowX:"hidden", WebkitOverflowScrolling:"touch", padding:"16px 20px" },
   logo: { fontSize:13, letterSpacing:2, textTransform:"uppercase", color:T.roseDark, fontStyle:"italic" },
 };
+
+function BottomNav({active, onHome, onProfile}) {
+  return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-around",padding:"10px 0 4px",background:T.bg,borderTop:"1px solid "+T.border,flexShrink:0}}>
+      <button onClick={onHome} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 24px",borderRadius:14,background:"none",border:"none"}}>
+        <Icon name="home" size={22} color={active==="home"?T.roseDark:T.muted}/>
+        <span style={{fontSize:11,color:active==="home"?T.roseDark:T.muted}}>Home</span>
+      </button>
+      <button onClick={onProfile} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 24px",borderRadius:14,background:"none",border:"none"}}>
+        <Icon name="user" size={22} color={active==="profilo"?T.roseDark:T.muted}/>
+        <span style={{fontSize:11,color:active==="profilo"?T.roseDark:T.muted}}>Profilo</span>
+      </button>
+    </div>
+  );
+}
 
 function BtnPri({children,onClick,disabled,style={}}) {
   return <button onClick={onClick} disabled={disabled} style={{background:"linear-gradient(135deg,#E8A8A0,#C89090)",color:"#fff",border:"none",borderRadius:28,padding:"13px 28px",fontSize:17,fontWeight:500,cursor:disabled?"default":"pointer",width:"100%",boxShadow:"0 4px 16px rgba(200,144,144,0.3)",opacity:disabled?0.6:1,...style}}>{children}</button>;
@@ -242,7 +251,6 @@ function Lbl({children}) { return <div style={{fontSize:11,fontWeight:500,color:
 function Card({children,style={}}) { return <div style={{background:T.card,borderRadius:18,padding:"16px 18px",boxShadow:"0 2px 12px rgba(180,120,120,0.07)",...style}}>{children}</div>; }
 function Toast({show}) { return show?<div className="wl-toast">Salvato con successo ✓</div>:null; }
 
-// ── NOTE BOX ──
 function NoteBox({value,onChange,dayKey,fieldKey,label,isGold,placeholder,readOnly}) {
   const [exp,setExp]=useState(false);
   const prev=(value||"").slice(0,80),long=(value||"").length>80;
@@ -276,7 +284,28 @@ function NoteRow({data,onChange,sectionKey,dayKey,isConsultant}) {
   );
 }
 
-// ── CARO DIARIO ──
+function InstallGuide({platform}) {
+  const [open,setOpen]=useState(false);
+  const isApple=platform==="apple";
+  const steps=isApple
+    ?["1. Apri questo link da Safari (non Chrome!)","2. Tocca il pulsante Condividi in basso","3. Scorri e tocca Aggiungi a schermata Home","4. Tocca Aggiungi in alto a destra","L'app apparira come icona sul tuo iPhone!"]
+    :["1. Apri questo link da Chrome","2. Tocca i 3 puntini in alto a destra","3. Tocca Aggiungi a schermata Home","4. Tocca Aggiungi per confermare","L'app apparira come icona sul tuo Android!"];
+  return (
+    <div style={{position:"relative",flex:1}}>
+      <button onClick={()=>setOpen(!open)} style={{background:isApple?"#555":T.sage,color:"#fff",border:"none",borderRadius:20,padding:"10px 14px",fontSize:14,fontWeight:500,cursor:"pointer",width:"100%",fontFamily:"'EB Garamond',serif"}}>
+        {isApple?"🍎 App iPhone":"🤖 App Android"}
+      </button>
+      {open&&(
+        <div style={{position:"absolute",left:0,right:0,top:46,background:"#fff",border:"1px solid rgba(200,160,160,0.2)",borderRadius:16,padding:16,boxShadow:"0 8px 24px rgba(180,120,120,0.15)",zIndex:100}}>
+          <div style={{fontWeight:600,color:isApple?"#555":T.sage,marginBottom:10,fontSize:14}}>{isApple?"Installa su iPhone/iPad":"Installa su Android"}</div>
+          {steps.map((s,i)=><div key={i} style={{fontSize:13,color:T.text,marginBottom:8,lineHeight:1.5}}>{s}</div>)}
+          <div onClick={()=>setOpen(false)} style={{textAlign:"right",fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:8}}>Chiudi ✕</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CaroDiario({data,onChange,dayKey,isConsultant}) {
   const cv=data["caro_diario__shared"]||"",qv=data["caro_diario__consulente"]||"";
   return (
@@ -310,7 +339,6 @@ function CaroDiario({data,onChange,dayKey,isConsultant}) {
   );
 }
 
-// ── SECTION SCREEN ──
 function SectionScreen({section,dayKey,data,onChange,onBack,isConsultant}) {
   const [toast,setToast]=useState(false);
   if(!data)return null;
@@ -343,7 +371,6 @@ function SectionScreen({section,dayKey,data,onChange,onBack,isConsultant}) {
           })}
         </Card>
         {NOTE_SECTIONS.includes(section.key)&&<NoteRow data={data} onChange={onChange} sectionKey={section.key} dayKey={dayKey} isConsultant={isConsultant}/>}
-        <CaroDiario data={data} onChange={onChange} dayKey={dayKey} isConsultant={isConsultant}/>
         <div style={{height:24}}/>
         <BtnPri onClick={()=>{setToast(true);setTimeout(()=>setToast(false),2200);}}>Salva sezione</BtnPri>
         <div style={{height:24}}/>
@@ -353,7 +380,6 @@ function SectionScreen({section,dayKey,data,onChange,onBack,isConsultant}) {
   );
 }
 
-// ── DAY SCREEN ──
 function DayScreen({dayKey,weekData,onChange,onBack,isConsultant,onSave}) {
   const [activeSection,setActiveSection]=useState(null);
   const [toast,setToast]=useState(false);
@@ -393,6 +419,7 @@ function DayScreen({dayKey,weekData,onChange,onBack,isConsultant,onSave}) {
             </button>
           );
         })}
+        <CaroDiario data={weekData[dayKey]||emptyDay()} onChange={onChange} dayKey={dayKey} isConsultant={isConsultant}/>
         <div style={{height:20}}/>
       </div>
       <Toast show={toast}/>
@@ -400,7 +427,6 @@ function DayScreen({dayKey,weekData,onChange,onBack,isConsultant,onSave}) {
   );
 }
 
-// ── TABLE VIEW ──
 function TableView({weekData,weekNum}) {
   const days=weekNum===1?DAYS_W1:DAYS_W2;
   const rows=[];
@@ -435,7 +461,6 @@ function TableView({weekData,weekNum}) {
   );
 }
 
-// ── QUESTIONARIO ──
 function QField({label,value,onChange,tipo,readOnly}) {
   const [open,setOpen]=useState(false);
   const prev=(value||"").slice(0,60),has=(value||"").length>0;
@@ -484,8 +509,86 @@ function QuestionarioView({questionario,onChange,readOnly,onBack,onPDF}) {
   );
 }
 
-// ── HOME SCREEN (cliente) ──
-function HomeScreen({client,data,onDay,onProfile,onTable,onQuestionario}) {
+// ── CLIENT VIEW — gestisce tutte le schermate lato cliente con bottom nav persistente ──
+function ClientView({client,onSave}) {
+  const [screen,setScreen]=useState("home");
+  const [activeDay,setActiveDay]=useState(null);
+  const [activeWeek,setActiveWeek]=useState(1);
+  const [tableWeek,setTableWeek]=useState(1);
+  const [data,setData]=useState({week1:safeWeek(client,1),week2:safeWeek(client,2)});
+  const [questionario,setQuestionario]=useState(client.questionario||emptyQuestionario());
+  const [toast,setToast]=useState(false);
+
+  function change(wn,dk,f,v){setData(prev=>({...prev,["week"+wn]:{...prev["week"+wn],[dk]:{...prev["week"+wn][dk],[f]:v}}}));}
+  async function doSave(){await onSave({...data,questionario});setToast(true);setTimeout(()=>setToast(false),2200);}
+
+  // Schermate che mostrano la bottom nav
+  const showBottomNav = screen==="home" || screen==="profilo";
+
+  // Schermate senza bottom nav (day, table, questionario, section)
+  if(screen==="table") return (
+    <div style={S.screen}>
+      <div style={S.navTop}>
+        <BtnIco onClick={()=>setScreen("home")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
+        <div style={{textAlign:"center"}}><div style={S.logo}>with love</div><div style={{fontSize:15,fontStyle:"italic",color:T.text}}>Riepilogo Settimana {tableWeek}</div></div>
+        <div style={{width:38}}/>
+      </div>
+      <div style={{padding:"8px 16px",display:"flex",gap:6}}>
+        {[1,2].map(w=><BtnSm key={w} onClick={()=>setTableWeek(w)} color={tableWeek===w?T.roseDark:"#eee"} textColor={tableWeek===w?"#fff":T.text} style={{fontSize:13}}>Settimana {w}</BtnSm>)}
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"0 8px 16px"}}>
+        <TableView weekData={data["week"+tableWeek]} weekNum={tableWeek}/>
+      </div>
+    </div>
+  );
+
+  if(screen==="questionario") return (
+    <QuestionarioView questionario={questionario} onChange={(k,v)=>setQuestionario(prev=>({...prev,[k]:v}))} readOnly={false} onBack={()=>setScreen("home")} onPDF={null}/>
+  );
+
+  if(screen==="day"&&activeDay) return (
+    <DayScreen dayKey={activeDay} weekData={data["week"+activeWeek]}
+      onChange={(dk,f,v)=>change(activeWeek,dk,f,v)}
+      onBack={()=>setScreen("home")} isConsultant={false} onSave={doSave}/>
+  );
+
+  // Home e Profilo condividono la bottom nav
+  return (
+    <div style={{width:"100%",height:"100%",position:"relative",display:"flex",flexDirection:"column"}}>
+      <div style={{flex:1,overflow:"hidden",position:"relative"}}>
+
+        {/* HOME */}
+        {screen==="home" && (
+          <HomeScreen client={client} data={data}
+            onDay={(d,w)=>{setActiveDay(d);setActiveWeek(w);setScreen("day");}}
+            onTable={w=>{setTableWeek(w);setScreen("table");}}
+            onQuestionario={()=>setScreen("questionario")}/>
+        )}
+
+        {/* PROFILO */}
+        {screen==="profilo" && (
+          <ProfileScreen
+            client={client}
+            onLogout={()=>{sessionStorage.removeItem("role");window.location.reload();}}
+          />
+        )}
+
+      </div>
+
+      {/* BOTTOM NAV sempre visibile su home e profilo */}
+      <BottomNav
+        active={screen}
+        onHome={()=>setScreen("home")}
+        onProfile={()=>setScreen("profilo")}
+      />
+
+      <Toast show={toast}/>
+    </div>
+  );
+}
+
+// ── HOME SCREEN ──
+function HomeScreen({client,data,onDay,onTable,onQuestionario}) {
   const [week,setWeek]=useState(1);
   const days=week===1?DAYS_W1:DAYS_W2;
   const wkData=data["week"+week];
@@ -493,10 +596,10 @@ function HomeScreen({client,data,onDay,onProfile,onTable,onQuestionario}) {
   function countDay(dk){let n=0;SECTIONS.forEach(s=>s.fields.forEach(f=>{if((wkData[dk]&&wkData[dk][s.key+"__"+f]||"").trim())n++;}));return n;}
 
   return (
-    <div style={S.screen}>
+    <div style={{...S.screen}}>
       <div style={S.navTop}>
         <div><div style={S.logo}>with love</div><div style={{fontSize:18,fontStyle:"italic",color:T.text,marginTop:1}}>Ciao, {client.name.split(" ")[0]} 🌸</div></div>
-        <BtnIco onClick={onProfile}><div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="user" size={18} color={T.roseDark}/></div></BtnIco>
+        <div style={{width:38}}/>
       </div>
       <div style={S.body}>
         <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"flex",gap:4,marginBottom:18}}>
@@ -532,24 +635,16 @@ function HomeScreen({client,data,onDay,onProfile,onTable,onQuestionario}) {
         })}
         <div style={{height:20}}/>
       </div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-around",padding:"10px 0 4px",background:T.bg,borderTop:"1px solid "+T.border,flexShrink:0}}>
-        {[{k:"home",icon:"home",label:"Home"},{k:"user",icon:"user",label:"Profilo"}].map(t=>(
-          <button key={t.k} onClick={t.k==="user"?onProfile:undefined} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 24px",borderRadius:14,background:"none",border:"none"}}>
-            <Icon name={t.icon} size={22} color={t.k==="home"?T.roseDark:T.muted}/>
-            <span style={{fontSize:11,color:t.k==="home"?T.roseDark:T.muted}}>{t.label}</span>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
 
-// ── PROFILE SCREEN (cliente) ──
-function ProfileScreen({client,onBack,onLogout}) {
+// ── PROFILE SCREEN ──
+function ProfileScreen({client,onLogout}) {
   return (
-    <div className="slide-enter" style={S.screen}>
+    <div style={{...S.screen}}>
       <div style={S.navTop}>
-        <BtnIco onClick={onBack}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
+        <div style={{width:38}}/>
         <div style={{fontSize:17,fontStyle:"italic",color:T.text}}>Il mio profilo</div>
         <div style={{width:38}}/>
       </div>
@@ -566,63 +661,15 @@ function ProfileScreen({client,onBack,onLogout}) {
           </Card>
         ))}
         <div style={{height:20}}/>
+        <div style={{fontSize:13,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}}>Installa l'app sul telefono</div>
+        <div style={{display:"flex",gap:10,marginBottom:20}}>
+          <InstallGuide platform="apple"/>
+          <InstallGuide platform="android"/>
+        </div>
         <BtnGho onClick={onLogout}>Esci dall'account</BtnGho>
         <div style={{marginTop:12,textAlign:"center"}}><BtnSm onClick={()=>window.location.reload()} color={T.sage} style={{fontSize:13}}>🔄 Aggiorna dati</BtnSm></div>
         <div style={{height:24}}/>
       </div>
-    </div>
-  );
-}
-
-// ── CLIENT VIEW ──
-function ClientView({client,onSave}) {
-  const [screen,setScreen]=useState("home");
-  const [activeDay,setActiveDay]=useState(null);
-  const [activeWeek,setActiveWeek]=useState(1);
-  const [tableWeek,setTableWeek]=useState(1);
-  const [data,setData]=useState({week1:safeWeek(client,1),week2:safeWeek(client,2)});
-  const [questionario,setQuestionario]=useState(client.questionario||emptyQuestionario());
-  const [toast,setToast]=useState(false);
-
-  function change(wn,dk,f,v){setData(prev=>({...prev,["week"+wn]:{...prev["week"+wn],[dk]:{...prev["week"+wn][dk],[f]:v}}}));}
-  async function doSave(){await onSave({...data,questionario});setToast(true);setTimeout(()=>setToast(false),2200);}
-
-  if(screen==="profilo") return <ProfileScreen client={client} onBack={()=>setScreen("home")} onLogout={()=>{sessionStorage.removeItem("role");window.location.reload();}}/>;
-
-  if(screen==="table") return (
-    <div style={S.screen}>
-      <div style={S.navTop}>
-        <BtnIco onClick={()=>setScreen("home")}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
-        <div style={{textAlign:"center"}}><div style={S.logo}>with love</div><div style={{fontSize:15,fontStyle:"italic",color:T.text}}>Riepilogo Settimana {tableWeek}</div></div>
-        <div style={{width:38}}/>
-      </div>
-      <div style={{padding:"8px 16px",display:"flex",gap:6}}>
-        {[1,2].map(w=><BtnSm key={w} onClick={()=>setTableWeek(w)} color={tableWeek===w?T.roseDark:"#eee"} textColor={tableWeek===w?"#fff":T.text} style={{fontSize:13}}>Settimana {w}</BtnSm>)}
-      </div>
-      <div style={{flex:1,overflowY:"auto",padding:"0 8px 16px"}}>
-        <TableView weekData={data["week"+tableWeek]} weekNum={tableWeek}/>
-      </div>
-    </div>
-  );
-
-  if(screen==="questionario") return (
-    <QuestionarioView questionario={questionario} onChange={(k,v)=>setQuestionario(prev=>({...prev,[k]:v}))} readOnly={false} onBack={()=>setScreen("home")} onPDF={null}/>
-  );
-
-  if(screen==="day"&&activeDay) return (
-    <DayScreen dayKey={activeDay} weekData={data["week"+activeWeek]}
-      onChange={(dk,f,v)=>change(activeWeek,dk,f,v)}
-      onBack={()=>setScreen("home")} isConsultant={false} onSave={doSave}/>
-  );
-
-  return (
-    <div style={{width:"100%",height:"100%",position:"relative"}}>
-      <HomeScreen client={client} data={data}
-        onDay={(d,w)=>{setActiveDay(d);setActiveWeek(w);setScreen("day");}}
-        onProfile={()=>setScreen("profilo")}
-        onTable={w=>{setTableWeek(w);setScreen("table");}}
-        onQuestionario={()=>setScreen("questionario")}/>
-      <Toast show={toast}/>
     </div>
   );
 }
@@ -695,8 +742,18 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
   const [tableWeek,setTableWeek]=useState(1);
   const [toast,setToast]=useState(false);
 
-  function openClient(c){setSelected(c);setTab("w1");setActiveDay(DAYS_W1[0]);setActiveSection(null);setView("detail");}
-  function openTable(c){setSelected(c);setTableWeek(1);setView("table");}
+  function openClient(c){
+    const fresh=clients.find(x=>x.id===c.id)||c;
+    setSelected(fresh);setTab("w1");setActiveDay(DAYS_W1[0]);setActiveSection(null);setView("detail");
+  }
+  function openTable(c){
+    const fresh=clients.find(x=>x.id===c.id)||c;
+    setSelected(fresh);setTableWeek(1);setView("table");
+  }
+
+  useEffect(()=>{
+    if(selected){const fresh=clients.find(c=>c.id===selected.id);if(fresh)setSelected(fresh);}
+  },[clients]);
 
   const consultantWrapper = (content) => (
     <div style={{width:"100vw",minHeight:"100vh",background:"#f5ede8",overflowY:"auto"}}>
@@ -706,7 +763,6 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
     </div>
   );
 
-  // TABLE VIEW
   if(view==="table"&&selected) {
     const client=clients.find(c=>c.id===selected.id)||selected;
     const wData=safeWeek(client,tableWeek);
@@ -728,7 +784,6 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
     );
   }
 
-  // SECTION (within detail)
   if(view==="detail"&&selected&&activeSection) {
     const client=clients.find(c=>c.id===selected.id)||selected;
     const weekNum=tab==="w2"?2:1;
@@ -743,7 +798,6 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
     );
   }
 
-  // QUESTIONARIO (within detail)
   if(view==="detail"&&selected&&tab==="q") {
     const client=clients.find(c=>c.id===selected.id)||selected;
     const questionario=client.questionario||emptyQuestionario();
@@ -753,7 +807,6 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
     );
   }
 
-  // DETAIL VIEW
   if(view==="detail"&&selected) {
     const client=clients.find(c=>c.id===selected.id)||selected;
     const weekNum=tab==="w2"?2:1;
@@ -771,12 +824,10 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
           <BtnIco onClick={()=>openTable(client)}><Icon name="table" size={22} color={T.sage}/></BtnIco>
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
-          {/* Link */}
           <Card style={{marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
             <div style={{fontSize:12,color:T.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🔗 {baseUrl}?client={client.link}</div>
             <BtnSm onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(baseUrl+"?client="+client.link)} color={T.roseDark} style={{fontSize:12}}>Copia</BtnSm>
           </Card>
-          {/* Tabs */}
           <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"flex",gap:4,marginBottom:16}}>
             {[{id:"w1",label:"Settimana 1"},{id:"w2",label:"Settimana 2"},{id:"q",label:"Questionario"}].map(t=>(
               <button key={t.id} onClick={()=>{setTab(t.id);if(t.id==="w1")setActiveDay(DAYS_W1[0]);if(t.id==="w2")setActiveDay(DAYS_W2[0]);}} style={{flex:1,padding:"8px 4px",borderRadius:12,border:"none",fontSize:14,cursor:"pointer",background:tab===t.id?"white":"none",color:tab===t.id?T.roseDark:T.muted,boxShadow:tab===t.id?"0 2px 8px rgba(180,120,120,0.12)":"none"}}>
@@ -784,11 +835,9 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
               </button>
             ))}
           </div>
-          {/* Day selector */}
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
             {days.map(d=><button key={d} onClick={()=>setActiveDay(d)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:13,background:activeDay===d?T.roseDark:"#F5EDEB",color:activeDay===d?"white":T.text}}>{d}</button>)}
           </div>
-          {/* Section pills */}
           {SECTIONS.map(s=>(
             <button key={s.key} onClick={()=>setActiveSection(s)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:18,cursor:"pointer",marginBottom:10,border:"none",fontFamily:"'EB Garamond',serif",textAlign:"left",width:"100%",background:s.color,boxShadow:"0 2px 10px rgba(180,120,120,0.07)"}}>
               <span style={{fontSize:24}}>{s.icon}</span>
@@ -809,7 +858,6 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
     );
   }
 
-  // LIST VIEW
   return consultantWrapper(
     <div style={{display:"flex",flexDirection:"column",minHeight:"100vh"}}>
       <div style={S.navTop}>
@@ -820,12 +868,10 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
         </div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
-        {/* Reg link */}
         <Card style={{background:"linear-gradient(135deg,#E6F4EF,#EDE8F5)",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
           <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.sage,marginBottom:2}}>🔗 Link registrazione pubblica</div><div style={{fontSize:12,color:T.muted}}>Condividilo per nuove clienti</div></div>
           <BtnSm onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?register=true")} color={T.sage} style={{fontSize:12}}>Copia</BtnSm>
         </Card>
-        {/* Add client */}
         <Card style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",marginBottom:20}}>
           <div style={{fontSize:15,fontWeight:500,color:T.roseDark,marginBottom:12,fontStyle:"italic"}}>Aggiungi nuova cliente</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -834,7 +880,6 @@ function ConsultantView({clients,onAddClient,onUpdateClient,onDeleteClient,onLog
             <BtnPri onClick={()=>{if(newName.trim()){onAddClient(newName.trim(),newPapa.trim());setNewName("");setNewPapa("");}}} style={{marginTop:4}}>Aggiungi cliente</BtnPri>
           </div>
         </Card>
-        {/* Clients */}
         {clients.length===0?(
           <div style={{textAlign:"center",color:T.muted,padding:40,fontStyle:"italic"}}>Nessuna cliente ancora 🌸</div>
         ):clients.map(c=>(
