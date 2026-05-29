@@ -18,6 +18,15 @@ const auth = getAuth(firebaseApp);
 
 // FIX 1: Codice invito per la registrazione pubblica (rimosso CONSULTANT_CODE dal frontend)
 const REGISTER_INVITE_CODE = "wlsleep";
+// Codice invito per la nuova sezione "Diario della giornata" (modulo pannolino)
+const REGISTER_INVITE_CODE_MODULO = "WLpannolino";
+
+// Limite di accesso all'app (solo app, non il corso). Vale per sonno e modulo.
+const APP_ACCESS_DAYS = 60;
+
+// Modulo "Diario della giornata": giorni di partenza + righe iniziali per giorno
+const MODULO_DEFAULT_DAYS = ["Giorno 1","Giorno 2","Giorno 3"];
+const MODULO_ROWS_START = 5;
 
 const DAYS_W1 = ["Giorno 1","Giorno 2","Giorno 3","Giorno 4","Giorno 5","Giorno 6","Giorno 7"];
 const DAYS_W2 = ["Giorno 8","Giorno 9","Giorno 10","Giorno 11","Giorno 12","Giorno 13","Giorno 14"];
@@ -163,12 +172,56 @@ function emptyClient(name, papa) {
   return {
     id: genId(),
     name, papa: papa || "",
+    type: "sonno",
     link: Math.random().toString(36).slice(2, 10),
     createdAt: new Date().toLocaleDateString("it-IT"),
+    createdAtMs: Date.now(),
     week1: emptyDays(DAYS_W1),
     week2: emptyDays(DAYS_W2),
     questionario: emptyQuestionario()
   };
+}
+
+// ── MODULO "Diario della giornata" (sezione pannolino) ──
+function emptyModuloRow() { return { orario:"", cosa:"", p:false, d:false, f:false }; }
+function emptyModuloDay() {
+  const rows = [];
+  for (let i=0; i<MODULO_ROWS_START; i++) rows.push(emptyModuloRow());
+  return { data:"", rows, notato:"" };
+}
+function emptyModulo(days) { const m={}; days.forEach(d => { m[d]=emptyModuloDay(); }); return m; }
+function safeModuloDay(day) {
+  if (!day) return emptyModuloDay();
+  const rows = Array.isArray(day.rows) && day.rows.length ? day.rows.map(r => ({...emptyModuloRow(), ...r})) : emptyModuloDay().rows;
+  return { data: day.data || "", rows, notato: day.notato || "" };
+}
+function emptyModuloClient(name) {
+  return {
+    id: genId(),
+    name,
+    type: "modulo",
+    link: Math.random().toString(36).slice(2, 10),
+    createdAt: new Date().toLocaleDateString("it-IT"),
+    createdAtMs: Date.now(),
+    moduloDays: [...MODULO_DEFAULT_DAYS],
+    modulo: emptyModulo(MODULO_DEFAULT_DAYS)
+  };
+}
+
+// Scadenza accesso app (60 giorni). Vale per tutti i clienti; non blocca chi non ha data.
+function accessStartMs(client) {
+  if (client && client.createdAtMs) return client.createdAtMs;
+  const s = client && (client.registeredAt || client.createdAt);
+  if (s && typeof s === "string" && s.includes("/")) {
+    const [d,m,y] = s.split("/").map(Number);
+    if (y) return new Date(y, m-1, d).getTime();
+  }
+  return null;
+}
+function isExpired(client) {
+  const start = accessStartMs(client);
+  if (start == null) return false;
+  return Date.now() > start + APP_ACCESS_DAYS * 86400000;
 }
 function safeWeek(client, n) {
   const days = n===1 ? DAYS_W1 : DAYS_W2, wk = client["week"+n] || {}, r = {};
@@ -205,7 +258,7 @@ async function downloadPDF(client) {
       pdf.setTextColor(255,255,255); pdf.setFontSize(9); pdf.setFont("helvetica","bold"); pdf.text(sez.titolo,m+3,y+5.5); y+=11;
       if (sez.note) { pdf.setTextColor(120,120,120); pdf.setFontSize(8); pdf.setFont("helvetica","italic"); pdf.text(sez.note,m,y); y+=5; }
       sez.campi.forEach(campo => {
-        const val = (q[campo.key] && q[campo.key].trim()) ? q[campo.key] : "‚Äî"; chk(18);
+        const val = (q[campo.key] && q[campo.key].trim()) ? q[campo.key] : "—"; chk(18);
         pdf.setTextColor(60,60,60); pdf.setFontSize(8); pdf.setFont("helvetica","bold"); pdf.text(campo.label,m,y); y+=4;
         pdf.setFillColor(251,240,230); pdf.setDrawColor(220,200,200);
         const lines = pdf.splitTextToSize(val,cw-6), bh = Math.max(8,lines.length*4.5+3);
@@ -216,6 +269,101 @@ async function downloadPDF(client) {
     const tp = pdf.internal.getNumberOfPages();
     for (let i=1; i<=tp; i++) { pdf.setPage(i); pdf.setFontSize(7.5); pdf.setTextColor(160,160,160); pdf.setFont("helvetica","normal"); pdf.text("With Love Family - "+client.name,m,292); pdf.text("Pag. "+i+" / "+tp,195,292,{align:"right"}); }
     pdf.save("Questionario_"+client.name.replace(/\s+/g,"_")+".pdf");
+  } catch(e) { alert("Errore PDF. Usa un browser aggiornato."); console.error(e); }
+}
+
+async function ensureJsPDF() {
+  if (!window.jspdf) await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  return window.jspdf.jsPDF;
+}
+
+// Disegna una pagina "Diario della giornata" (con o senza dati)
+function drawModuloPage(pdf, dayLabel, dayData) {
+  const m = 16, pw = 210, cw = pw - m*2;
+  const gold = [180,150,90];
+  // Titolo
+  pdf.setTextColor(120,120,120); pdf.setFontSize(8); pdf.setFont("helvetica","italic");
+  pdf.text("— With Love —", pw/2, 14, {align:"center"});
+  pdf.setTextColor(gold[0],gold[1],gold[2]); pdf.setFontSize(20); pdf.setFont("helvetica","normal");
+  pdf.text("Diario della giornata", m, 26);
+  pdf.setTextColor(60,60,60); pdf.setFontSize(11); pdf.setFont("helvetica","normal");
+  const giornoTxt = "Giorno: " + (dayData && dayData.data ? dayData.data : (dayLabel||""));
+  pdf.text(giornoTxt, pw - m, 26, {align:"right"});
+  // Intestazione tabella
+  let y = 34;
+  const cOrario = m, wOrario = 26, cCosa = m+wOrario, wCosa = 78, cNote = m+wOrario+wCosa, wNote = cw-wOrario-wCosa;
+  pdf.setDrawColor(gold[0],gold[1],gold[2]); pdf.setLineWidth(0.2);
+  pdf.setFillColor(250,247,240); pdf.rect(m, y, cw, 7, "F");
+  pdf.setTextColor(120,110,80); pdf.setFontSize(8); pdf.setFont("helvetica","italic");
+  pdf.text("Orario", cOrario+3, y+4.7);
+  pdf.text("Cosa è successo", cCosa+3, y+4.7);
+  pdf.text("Note", cNote+wNote/2, y+4.7, {align:"center"});
+  y += 7;
+  // Righe
+  const rows = (dayData && dayData.rows) ? dayData.rows : [];
+  const totalRows = Math.max(rows.length, 18);
+  const rh = 9.5;
+  pdf.setFont("helvetica","normal"); pdf.setFontSize(8.5);
+  for (let i=0; i<totalRows; i++) {
+    if (y + rh > 250) break;
+    const r = rows[i] || {};
+    pdf.setDrawColor(gold[0],gold[1],gold[2]);
+    pdf.rect(cOrario, y, wOrario, rh); pdf.rect(cCosa, y, wCosa, rh); pdf.rect(cNote, y, wNote, rh);
+    pdf.setTextColor(40,40,40);
+    if (r.orario) pdf.text(String(r.orario).slice(0,12), cOrario+2, y+6);
+    if (r.cosa) pdf.text(pdf.splitTextToSize(String(r.cosa), wCosa-4), cCosa+2, y+6);
+    // checkbox P D F
+    const labels = [["P", r.p],["D", r.d],["F", r.f]];
+    let bx = cNote + 4;
+    labels.forEach(([lab, on]) => {
+      pdf.setDrawColor(150,150,150); pdf.rect(bx, y+rh/2-2, 3.2, 3.2);
+      if (on) { pdf.setFont("helvetica","bold"); pdf.text("x", bx+0.6, y+rh/2+0.9); pdf.setFont("helvetica","normal"); }
+      pdf.setTextColor(80,80,80); pdf.setFontSize(8); pdf.text(lab, bx+4.2, y+rh/2+1);
+      bx += 14;
+    });
+    y += rh;
+  }
+  // Cosa ho notato oggi
+  y += 6; if (y > 250) y = 250;
+  pdf.setTextColor(gold[0],gold[1],gold[2]); pdf.setFontSize(11); pdf.setFont("helvetica","normal");
+  pdf.text("Cosa ho notato oggi", m, y);
+  pdf.setTextColor(120,120,120); pdf.setFontSize(8); pdf.setFont("helvetica","italic");
+  pdf.text("— atteggiamenti, nessi che inizio a vedere, momenti di distrazione, qualunque cosa.", m+44, y);
+  y += 4;
+  const boxH = Math.min(40, 285 - y);
+  pdf.setDrawColor(gold[0],gold[1],gold[2]); pdf.rect(m, y, cw, boxH);
+  if (dayData && dayData.notato) {
+    pdf.setTextColor(40,40,40); pdf.setFontSize(9); pdf.setFont("helvetica","normal");
+    pdf.text(pdf.splitTextToSize(String(dayData.notato), cw-6), m+3, y+6);
+  }
+  pdf.setTextColor(120,120,120); pdf.setFontSize(8); pdf.setFont("helvetica","italic");
+  pdf.text("— With Love —", pw/2, 292, {align:"center"});
+}
+
+async function downloadModuloBlankPDF() {
+  try {
+    const jsPDF = await ensureJsPDF();
+    const pdf = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    drawModuloPage(pdf, "", null);
+    pdf.save("Diario_della_giornata_vuoto.pdf");
+  } catch(e) { alert("Errore PDF. Usa un browser aggiornato."); console.error(e); }
+}
+
+async function downloadModuloFilledPDF(client) {
+  try {
+    const jsPDF = await ensureJsPDF();
+    const pdf = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const days = (client.moduloDays && client.moduloDays.length) ? client.moduloDays : MODULO_DEFAULT_DAYS;
+    days.forEach((d, i) => {
+      if (i > 0) pdf.addPage();
+      drawModuloPage(pdf, d, safeModuloDay((client.modulo||{})[d]));
+    });
+    pdf.save("Diario_della_giornata_" + (client.name||"").replace(/\s+/g,"_") + ".pdf");
   } catch(e) { alert("Errore PDF. Usa un browser aggiornato."); console.error(e); }
 }
 
@@ -289,7 +437,7 @@ function Card({children, style={}}) {
 
 // FIX 4: Toast con variante errore
 function Toast({show, error=false}) {
-  return show ? <div className={"wl-toast"+(error?" error":"")}>{error ? "Errore nel salvataggio ‚úó" : "Salvato con successo ‚úì"}</div> : null;
+  return show ? <div className={"wl-toast"+(error?" error":"")}>{error ? "Errore nel salvataggio ✗" : "Salvato con successo ✓"}</div> : null;
 }
 
 // FIX 5: Dialog di conferma custom (sostituisce window.confirm)
@@ -324,16 +472,16 @@ function NoteBox({value, onChange, dayKey, fieldKey, label, isGold, placeholder,
             style={{width:"100%",background:readOnly?"#f9f6f4":"#fff",border:"none",borderRadius:8,padding:"8px 10px",fontSize:14,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box"}}/>
           <button className="wl-btn-accessible" onClick={toggle}
             style={{fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:4,background:"none",border:"none",padding:0}}>
-            chiudi ‚ñ≤
+            chiudi ▲
           </button>
         </div>
       ) : (
         <button className="wl-btn-accessible" onClick={toggle}
           style={{cursor:"pointer",background:"none",border:"none",padding:0,width:"100%",textAlign:"left"}}>
           <div style={{fontSize:13,color:(value&&value.length>0)?T.text:"#c0a0a0",lineHeight:1.5,fontStyle:(value&&value.length>0)?"normal":"italic"}}>
-            {(value&&value.length>0) ? (long ? prev+"..." : value) : (readOnly?"‚Äî":placeholder)}
+            {(value&&value.length>0) ? (long ? prev+"..." : value) : (readOnly?"—":placeholder)}
           </div>
-          {long && <span style={{fontSize:12,color:T.roseDark,display:"inline-block",marginTop:4}}>leggi tutto ‚ñº</span>}
+          {long && <span style={{fontSize:12,color:T.roseDark,display:"inline-block",marginTop:4}}>leggi tutto ▼</span>}
         </button>
       )}
     </div>
@@ -344,7 +492,7 @@ function NoteRow({data, onChange, sectionKey, dayKey, isConsultant}) {
   return (
     <div style={{marginTop:10,display:"flex",gap:8}}>
       <NoteBox value={data[sectionKey+"__NOTE_CLIENTE"]||""} onChange={onChange} dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CLIENTE"} label="Note mamma" isGold={false} placeholder="Scrivi le tue note..." readOnly={false}/>
-      <NoteBox value={data[sectionKey+"__NOTE_CONSULENTE"]||""} onChange={onChange} dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CONSULENTE"} label="Note consulente" isGold={true} placeholder={isConsultant?"Aggiungi nota...":"‚Äî"} readOnly={!isConsultant}/>
+      <NoteBox value={data[sectionKey+"__NOTE_CONSULENTE"]||""} onChange={onChange} dayKey={dayKey} fieldKey={sectionKey+"__NOTE_CONSULENTE"} label="Note consulente" isGold={true} placeholder={isConsultant?"Aggiungi nota...":"—"} readOnly={!isConsultant}/>
     </div>
   );
 }
@@ -364,7 +512,7 @@ function InstallGuide({platform}) {
         <div style={{position:"absolute",left:0,right:0,top:46,background:"#fff",border:"1px solid rgba(200,160,160,0.2)",borderRadius:16,padding:16,boxShadow:"0 8px 24px rgba(180,120,120,0.15)",zIndex:100}}>
           <div style={{fontWeight:600,color:isApple?"#555":T.sage,marginBottom:10,fontSize:14}}>{isApple?"Installa su iPhone/iPad":"Installa su Android"}</div>
           {steps.map((s,i) => <div key={i} style={{fontSize:13,color:T.text,marginBottom:8,lineHeight:1.5}}>{s}</div>)}
-          <button onClick={() => setOpen(false)} style={{float:"right",fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:8,background:"none",border:"none",fontFamily:"'EB Garamond',serif"}}>Chiudi ‚úï</button>
+          <button onClick={() => setOpen(false)} style={{float:"right",fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:8,background:"none",border:"none",fontFamily:"'EB Garamond',serif"}}>Chiudi ✕</button>
         </div>
       )}
     </div>
@@ -515,10 +663,10 @@ function DayScreen({dayKey, weekData, onChange, onBack, isConsultant, onSave}) {
               <span style={{fontSize:26}}>{s.icon}</span>
               <div style={{flex:1}}>
                 <div style={{fontSize:17,fontWeight:500,color:T.text,fontStyle:"italic"}}>{s.label}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:2}}>{s.fields.length} campi ¬∑ {done?"Completato ‚úì":partial?filled+"/"+s.fields.length+" compilati":"Da compilare"}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>{s.fields.length} campi · {done?"Completato ✓":partial?filled+"/"+s.fields.length+" compilati":"Da compilare"}</div>
               </div>
               {done && <span style={{width:20,height:20,borderRadius:"50%",background:"#A8D8C0",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Icon name="check" size={12} color="white"/></span>}
-              <span style={{color:T.muted,fontSize:20}}>‚Ä∫</span>
+              <span style={{color:T.muted,fontSize:20}}>›</span>
             </button>
           );
         })}
@@ -576,19 +724,19 @@ function QField({label, value, onChange, tipo, readOnly}) {
         <div>
           {tipo==="area"
             ? <textarea value={value||""} readOnly={readOnly} onChange={e => !readOnly && onChange(e.target.value)} rows={4}
-                style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"10px 14px",fontSize:14,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box"}} placeholder={readOnly?"‚Äî":"Scrivi qui..."}/>
+                style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"10px 14px",fontSize:14,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box"}} placeholder={readOnly?"—":"Scrivi qui..."}/>
             : <input value={value||""} readOnly={readOnly} onChange={e => !readOnly && onChange(e.target.value)}
-                style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"12px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",boxSizing:"border-box"}} placeholder={readOnly?"‚Äî":"Scrivi qui..."}/>
+                style={{width:"100%",background:readOnly?"#f9f6f4":T.pink,border:"none",borderRadius:12,padding:"12px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",boxSizing:"border-box"}} placeholder={readOnly?"—":"Scrivi qui..."}/>
           }
           <button className="wl-btn-accessible" onClick={() => setOpen(false)}
             style={{fontSize:12,color:T.roseDark,cursor:"pointer",marginTop:4,display:"inline-block",background:"none",border:"none",fontFamily:"'EB Garamond',serif"}}>
-            chiudi ‚ñ≤
+            chiudi ▲
           </button>
         </div>
       ) : (
         <button className="wl-btn-accessible" onClick={() => setOpen(true)}
           style={{cursor:"pointer",background:has?"rgba(255,255,255,0.8)":T.pink,border:"1px solid rgba(200,160,160,0.2)",borderRadius:12,padding:"10px 14px",fontSize:14,color:has?T.text:"#c0a0a0",minHeight:40,fontStyle:has?"normal":"italic",width:"100%",textAlign:"left",fontFamily:"'EB Garamond',serif"}}>
-          {has ? (prev.length < (value||"").length ? prev+"..." : value) : (readOnly ? "‚Äî" : "Tocca per rispondere...")}
+          {has ? (prev.length < (value||"").length ? prev+"..." : value) : (readOnly ? "—" : "Tocca per rispondere...")}
         </button>
       )}
     </div>
@@ -620,7 +768,7 @@ function QuestionarioView({questionario, onChange, readOnly, onBack, onPDF}) {
   );
 }
 
-// ‚îÄ‚îÄ CLIENT VIEW ‚îÄ‚îÄ
+// ── CLIENT VIEW ──
 function ClientView({client, onSave}) {
   const [screen, setScreen] = useState("home");
   const [activeDay, setActiveDay] = useState(null);
@@ -630,7 +778,7 @@ function ClientView({client, onSave}) {
   const [questionario, setQuestionario] = useState(client.questionario || emptyQuestionario());
   const [toast, setToast] = useState(false);
 
-  // FIX 8: Auto-save con debounce ‚Äî usa ref per leggere i valori aggiornati nel timer
+  // FIX 8: Auto-save con debounce — usa ref per leggere i valori aggiornati nel timer
   const dataRef = useRef(data);
   const questionarioRef = useRef(questionario);
   const autoSaveTimer = useRef(null);
@@ -716,7 +864,7 @@ function ClientView({client, onSave}) {
   );
 }
 
-// ‚îÄ‚îÄ HOME SCREEN ‚îÄ‚îÄ
+// ── HOME SCREEN ──
 function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
   const [week, setWeek] = useState(1);
   const days = week===1 ? DAYS_W1 : DAYS_W2;
@@ -740,7 +888,7 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
           {[1,2].map(w => <button key={w} onClick={() => setWeek(w)} style={{flex:1,padding:"8px",borderRadius:12,border:"none",fontSize:15,cursor:"pointer",background:week===w?"white":"none",color:week===w?T.roseDark:T.muted,boxShadow:week===w?"0 2px 8px rgba(180,120,120,0.12)":"none",transition:"all 0.2s"}}>Settimana {w}</button>)}
         </div>
         <Card style={{background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",marginBottom:18}}>
-          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>Settimana {week} ¬∑ Riepilogo</div>
+          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>Settimana {week} · Riepilogo</div>
           <div style={{fontSize:15,color:T.text,fontStyle:"italic",marginBottom:14}}>Tieni traccia di ogni giornata del tuo piccolo </div>
           <div style={{display:"flex",gap:8}}>
             <BtnSm onClick={() => onTable(week)} color={T.roseDark} style={{flex:1,fontSize:13}}>Vista tabella</BtnSm>
@@ -766,7 +914,7 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
                   </div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                  <span style={{fontSize:18}}>{pct===100?"":filled>0?"":"‚óã"}</span>
+                  <span style={{fontSize:18}}>{pct===100?"":filled>0?"":"○"}</span>
                   <span style={{fontSize:11,color:T.muted}}>{pct}%</span>
                 </div>
               </div>
@@ -779,7 +927,7 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
   );
 }
 
-// ‚îÄ‚îÄ PROFILE SCREEN ‚îÄ‚îÄ
+// ── PROFILE SCREEN ──
 function ProfileScreen({client, onLogout}) {
   return (
     <div style={{...S.screen}}>
@@ -822,7 +970,7 @@ function ProfileScreen({client, onLogout}) {
   );
 }
 
-// ‚îÄ‚îÄ REGISTER PAGE (FIX 10: codice invito obbligatorio) ‚îÄ‚îÄ
+// ── REGISTER PAGE (FIX 10: codice invito obbligatorio) ──
 function RegisterPage() {
   const [nome, setNome] = useState(""), [cognome, setCognome] = useState(""), [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -866,7 +1014,7 @@ function RegisterPage() {
   );
 }
 
-// ‚îÄ‚îÄ LOGIN (FIX 1: Firebase Auth per la consulente) ‚îÄ‚îÄ
+// ── LOGIN (FIX 1: Firebase Auth per la consulente) ──
 function LoginScreen({onLogin, clients}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -910,7 +1058,7 @@ function LoginScreen({onLogin, clients}) {
   );
 }
 
-// ‚îÄ‚îÄ CONSULTANT VIEW ‚îÄ‚îÄ
+// ── CONSULTANT VIEW ──
 function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, onLogout}) {
   const [view, setView] = useState("list");
   const [selected, setSelected] = useState(null);
@@ -950,6 +1098,10 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
     const fresh = clients.find(x => x.id===c.id) || c;
     setSelected(fresh); setTableWeek(1); setView("table");
   }
+  function openModulo(c) {
+    const fresh = clients.find(x => x.id===c.id) || c;
+    setSelected(fresh); setView("modulo");
+  }
 
   useEffect(() => {
     if (selected) { const fresh = clients.find(c => c.id===selected.id); if (fresh) setSelected(fresh); }
@@ -963,6 +1115,15 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
     </div>
   );
 
+  if (view==="modulo" && selected) {
+    const client = clients.find(c => c.id===selected.id) || selected;
+    return consultantWrapper(
+      <ModuloView client={client}
+        onSave={(data) => onUpdateClient({...client, ...data}, true)}
+        onExit={() => setView("list")}/>
+    );
+  }
+
   if (view==="table" && selected) {
     const client = clients.find(c => c.id===selected.id) || selected;
     const wData = safeWeek(client, tableWeek);
@@ -974,7 +1135,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
           <div style={{width:38}}/>
         </div>
         <div style={{padding:"12px 16px",display:"flex",gap:8,flexWrap:"wrap"}}>
-          <BtnSm onClick={() => setView("list")} color={T.muted} style={{fontSize:13}}>‚Üê Lista clienti</BtnSm>
+          <BtnSm onClick={() => setView("list")} color={T.muted} style={{fontSize:13}}>← Lista clienti</BtnSm>
           {[1,2].map(w => <BtnSm key={w} onClick={() => setTableWeek(w)} color={tableWeek===w?T.roseDark:"#eee"} textColor={tableWeek===w?"#fff":T.text} style={{fontSize:13}}>Settimana {w}</BtnSm>)}
         </div>
         <div style={{padding:"0 12px 24px",flex:1}}>
@@ -1046,12 +1207,12 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
                 <div style={{fontSize:16,fontWeight:500,color:T.text,fontStyle:"italic"}}>{s.label}</div>
                 <div style={{fontSize:12,color:T.muted}}>{activeDay}</div>
               </div>
-              <span style={{color:T.muted,fontSize:20}}>‚Ä∫</span>
+              <span style={{color:T.muted,fontSize:20}}>›</span>
             </button>
           ))}
           <CaroDiario data={safeWeek(client, weekNum)[activeDay]||emptyDay()} onChange={handleChange} dayKey={activeDay} isConsultant={true}/>
           <div style={{marginTop:16}}>
-            <BtnPri onClick={handleSave}>{saved?"‚úì Salvato!":"Salva modifiche"}</BtnPri>
+            <BtnPri onClick={handleSave}>{saved?"✓ Salvato!":"Salva modifiche"}</BtnPri>
           </div>
           <div style={{height:24}}/>
         </div>
@@ -1070,9 +1231,13 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
         </div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
-        <Card style={{background:"linear-gradient(135deg,#E6F4EF,#EDE8F5)",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.sage,marginBottom:2}}> Link registrazione pubblica</div><div style={{fontSize:12,color:T.muted}}>Condividilo per nuove clienti</div></div>
+        <Card style={{background:"linear-gradient(135deg,#E6F4EF,#EDE8F5)",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.sage,marginBottom:2}}> Link registrazione · Sonno</div><div style={{fontSize:12,color:T.muted}}>Condividilo per nuove clienti</div></div>
           <BtnSm onClick={() => navigator.clipboard && navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?register=true")} color={T.sage} style={{fontSize:12}}>Copia</BtnSm>
+        </Card>
+        <Card style={{background:"linear-gradient(135deg,#FBF0E6,#EDE8F5)",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.lilac,marginBottom:2}}> Link registrazione · Diario</div><div style={{fontSize:12,color:T.muted}}>Diario della giornata (pannolino)</div></div>
+          <BtnSm onClick={() => navigator.clipboard && navigator.clipboard.writeText(window.location.origin+window.location.pathname+"?register=modulo")} color={T.lilac} style={{fontSize:12}}>Copia</BtnSm>
         </Card>
         <Card style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",marginBottom:20}}>
           <div style={{fontSize:15,fontWeight:500,color:T.roseDark,marginBottom:12,fontStyle:"italic"}}>Aggiungi nuova cliente</div>
@@ -1088,13 +1253,20 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
           <Card key={c.id} style={{marginBottom:12,display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:46,height:46,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}></div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:500,fontSize:16,color:T.text,fontStyle:"italic"}}>{c.name}{c.papa?" ¬∑ "+c.papa:""}</div>
+              <div style={{fontWeight:500,fontSize:16,color:T.text,fontStyle:"italic"}}>{c.name}{c.papa?" · "+c.papa:""}</div>
               <div style={{fontSize:12,color:T.muted}}>Dal {c.createdAt}</div>
+              {(c.type||"sonno")==="modulo" && <div style={{display:"inline-block",fontSize:11,color:T.lilac,background:"rgba(176,160,204,0.15)",borderRadius:10,padding:"1px 8px",marginTop:3}}>Diario della giornata</div>}
               {c.email && <div style={{fontSize:12,color:T.sage,marginTop:2}}> {c.email}</div>}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <BtnSm onClick={() => openClient(c)} color={T.roseDark} style={{fontSize:12}}>Scheda</BtnSm>
-              <BtnSm onClick={() => openTable(c)} color={T.lilac} style={{fontSize:12}}>Tabella</BtnSm>
+              {(c.type||"sonno")==="modulo" ? (
+                <BtnSm onClick={() => openModulo(c)} color={T.lilac} style={{fontSize:12}}>Diario</BtnSm>
+              ) : (
+                <>
+                  <BtnSm onClick={() => openClient(c)} color={T.roseDark} style={{fontSize:12}}>Scheda</BtnSm>
+                  <BtnSm onClick={() => openTable(c)} color={T.lilac} style={{fontSize:12}}>Tabella</BtnSm>
+                </>
+              )}
               {/* FIX 5: Dialog custom al posto di window.confirm */}
               <BtnSm onClick={() => setConfirmDelete(c.id)} color="#e0d0d0" textColor={T.muted} style={{fontSize:12}}>Elimina</BtnSm>
             </div>
@@ -1105,7 +1277,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
       {/* FIX 5: Dialog di conferma */}
       {confirmDelete && (
         <ConfirmDialog
-          message={"Eliminare " + (clients.find(c => c.id===confirmDelete)?.name || "") + "? Questa azione √® irreversibile."}
+          message={"Eliminare " + (clients.find(c => c.id===confirmDelete)?.name || "") + "? Questa azione è irreversibile."}
           onConfirm={() => { onDeleteClient(confirmDelete); setConfirmDelete(null); }}
           onCancel={() => setConfirmDelete(null)}
         />
@@ -1114,14 +1286,257 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
   );
 }
 
-// ‚îÄ‚îÄ APP ROOT ‚îÄ‚îÄ
+// ── MODULO: helpers UI ──
+function countModuloRows(day) {
+  if (!day || !day.rows) return 0;
+  return day.rows.filter(r => (r.orario||"").trim() || (r.cosa||"").trim() || r.p || r.d || r.f).length;
+}
+
+function PDFToggle({label, on, onToggle}) {
+  return (
+    <button onClick={onToggle} aria-pressed={on} style={{width:34,height:34,borderRadius:"50%",border:"1.5px solid "+(on?T.sage:"#e0d0d0"),background:on?T.sage:"#fff",color:on?"#fff":T.muted,fontSize:15,fontWeight:500,cursor:"pointer",fontFamily:"'EB Garamond',serif",flexShrink:0}}>
+      {label}
+    </button>
+  );
+}
+
+// ── MODULO: editor di una giornata ──
+function ModuloDayScreen({dayKey, day, onField, onRow, onAddRow, onBack, onSave}) {
+  const [toast, setToast] = useState(false);
+  const [err, setErr] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const d = day || emptyModuloDay();
+
+  async function save() {
+    setSaving(true);
+    try { await onSave(); setToast(true); setTimeout(() => setToast(false), 2000); }
+    catch(e) { setErr(true); setTimeout(() => setErr(false), 2000); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="slide-enter" style={S.screen}>
+      <div style={{...S.navTop, background:T.peach}}>
+        <BtnIco onClick={onBack}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
+        <div style={{textAlign:"center"}}>
+          <div style={S.logo}>with love</div>
+          <div style={{fontSize:17,fontWeight:500,color:T.text,fontStyle:"italic"}}>Diario della giornata</div>
+          <div style={{fontSize:12,color:T.muted}}>{dayKey}</div>
+        </div>
+        <BtnIco onClick={save} disabled={saving}><Icon name="save" size={22} color={saving?T.muted:T.sage}/></BtnIco>
+      </div>
+      <div style={S.body}>
+        <Card style={{marginBottom:14}}>
+          <Lbl>Giorno (data)</Lbl>
+          <Inp value={d.data} onChange={v=>onField("data",v)} placeholder="gg/mm/aaaa"/>
+        </Card>
+        <Lbl>Orario · Cosa è successo · Note (P / D / F)</Lbl>
+        <div style={{height:8}}/>
+        {d.rows.map((r,i) => (
+          <Card key={i} style={{marginBottom:10}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+              <input value={r.orario} onChange={e=>onRow(i,"orario",e.target.value)} placeholder="00:00"
+                style={{width:78,background:T.peach,border:"none",borderRadius:10,padding:"10px 12px",fontSize:15,fontFamily:"'EB Garamond',serif",outline:"none"}}/>
+              <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
+                {[["P","p"],["D","d"],["F","f"]].map(([lab,key]) => (
+                  <PDFToggle key={key} label={lab} on={!!r[key]} onToggle={()=>onRow(i,key,!r[key])}/>
+                ))}
+              </div>
+            </div>
+            <textarea value={r.cosa} onChange={e=>onRow(i,"cosa",e.target.value)} rows={2} placeholder="Cosa è successo..."
+              style={{width:"100%",background:T.peach,border:"none",borderRadius:10,padding:"10px 12px",fontSize:15,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box",outline:"none"}}/>
+          </Card>
+        ))}
+        <button onClick={onAddRow} style={{width:"100%",background:"none",border:"1.5px dashed "+T.rose,color:T.roseDark,borderRadius:14,padding:"11px",fontSize:15,cursor:"pointer",fontFamily:"'EB Garamond',serif",fontStyle:"italic"}}>+ Aggiungi riga</button>
+        <div style={{height:18}}/>
+        <Card style={{background:"linear-gradient(135deg,#FBF0E6,#EDE8F5)",border:"1.5px solid #E8C0B8"}}>
+          <div style={{fontFamily:"'EB Garamond',serif",fontSize:20,color:T.roseDark,fontStyle:"italic",marginBottom:4}}>Cosa ho notato oggi</div>
+          <div style={{fontSize:12,color:T.muted,fontStyle:"italic",marginBottom:10}}>Atteggiamenti, nessi che inizio a vedere, momenti di distrazione, qualunque cosa.</div>
+          <textarea value={d.notato} onChange={e=>onField("notato",e.target.value)} rows={5} placeholder="Scrivi qui..."
+            style={{width:"100%",background:"rgba(255,255,255,0.7)",border:"none",borderRadius:12,padding:"10px 14px",fontSize:15,fontFamily:"'EB Garamond',serif",resize:"vertical",boxSizing:"border-box",color:T.text,lineHeight:1.6,outline:"none"}}/>
+        </Card>
+        <div style={{height:20}}/>
+        <BtnPri onClick={save} loading={saving}>Salva giornata</BtnPri>
+        <div style={{height:24}}/>
+      </div>
+      <Toast show={toast}/>
+      <Toast show={err} error={true}/>
+    </div>
+  );
+}
+
+// ── MODULO: vista cliente (SOLO il diario, nessuna sezione sonno) ──
+// onExit (opzionale): usato dalla consulente per tornare alla lista clienti.
+function ModuloView({client, onSave, onExit}) {
+  const [screen, setScreen] = useState("home");
+  const [activeDay, setActiveDay] = useState(null);
+  const [days, setDays] = useState(client.moduloDays && client.moduloDays.length ? [...client.moduloDays] : [...MODULO_DEFAULT_DAYS]);
+  const [modulo, setModulo] = useState(() => {
+    const base = {};
+    (client.moduloDays && client.moduloDays.length ? client.moduloDays : MODULO_DEFAULT_DAYS).forEach(d => { base[d] = safeModuloDay((client.modulo||{})[d]); });
+    return base;
+  });
+  const [toast, setToast] = useState(false);
+
+  const daysRef = useRef(days);
+  const moduloRef = useRef(modulo);
+  const autoSaveTimer = useRef(null);
+
+  function triggerAutoSave() {
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      try { await onSave({moduloDays: daysRef.current, modulo: moduloRef.current}); }
+      catch(e) { console.error("Auto-save fallito:", e); }
+    }, 2000);
+  }
+
+  function setDayField(dayKey, field, val) {
+    setModulo(prev => { const next = {...prev, [dayKey]: {...(prev[dayKey]||emptyModuloDay()), [field]: val}}; moduloRef.current = next; return next; });
+    triggerAutoSave();
+  }
+  function updateRow(dayKey, idx, field, val) {
+    setModulo(prev => {
+      const day = prev[dayKey] || emptyModuloDay();
+      const rows = day.rows.map((r,i) => i===idx ? {...r, [field]: val} : r);
+      const next = {...prev, [dayKey]: {...day, rows}};
+      moduloRef.current = next; return next;
+    });
+    triggerAutoSave();
+  }
+  function addRow(dayKey) {
+    setModulo(prev => { const day = prev[dayKey] || emptyModuloDay(); const next = {...prev, [dayKey]: {...day, rows: [...day.rows, emptyModuloRow()]}}; moduloRef.current = next; return next; });
+    triggerAutoSave();
+  }
+  function addDay() {
+    const n = "Giorno " + (daysRef.current.length + 1);
+    const nd = [...daysRef.current, n]; daysRef.current = nd; setDays(nd);
+    const nm = {...moduloRef.current, [n]: emptyModuloDay()}; moduloRef.current = nm; setModulo(nm);
+    triggerAutoSave();
+  }
+  async function doSave() {
+    clearTimeout(autoSaveTimer.current);
+    await onSave({moduloDays: daysRef.current, modulo: moduloRef.current});
+    setToast(true); setTimeout(() => setToast(false), 2200);
+  }
+
+  if (screen==="day" && activeDay) return (
+    <ModuloDayScreen dayKey={activeDay} day={modulo[activeDay]}
+      onField={(f,v) => setDayField(activeDay,f,v)}
+      onRow={(i,f,v) => updateRow(activeDay,i,f,v)}
+      onAddRow={() => addRow(activeDay)}
+      onBack={() => setScreen("home")} onSave={doSave}/>
+  );
+
+  return (
+    <div style={S.screen}>
+      <div style={S.navTop}>
+        {onExit
+          ? <BtnIco onClick={onExit}><Icon name="back" size={22} color={T.roseDark}/></BtnIco>
+          : <div style={{width:38}}/>}
+        <div style={{textAlign:"center"}}>
+          <div style={S.logo}>with love</div>
+          <div style={{fontSize:16,fontStyle:"italic",color:T.text}}>{onExit ? client.name : "Ciao, "+client.name.split(" ")[0]}</div>
+        </div>
+        <div style={{width:38}}/>
+      </div>
+      <div style={S.body}>
+        <Card style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",marginBottom:18}}>
+          <div style={{fontFamily:"'EB Garamond',serif",fontSize:22,color:T.roseDark,fontStyle:"italic",marginBottom:4}}>Diario della giornata</div>
+          <div style={{fontSize:14,color:T.muted,fontStyle:"italic",marginBottom:14}}>Annota orari, cosa succede e cosa noti, giorno per giorno.</div>
+          <div style={{display:"flex",gap:8}}>
+            <BtnSm onClick={() => downloadModuloBlankPDF()} color={T.lilac} style={{flex:1,fontSize:12}}>Scarica vuoto</BtnSm>
+            <BtnSm onClick={() => downloadModuloFilledPDF({...client, moduloDays:daysRef.current, modulo:moduloRef.current})} color={T.roseDark} style={{flex:1,fontSize:12}}>Scarica compilato</BtnSm>
+          </div>
+        </Card>
+        <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}}>I tuoi giorni</div>
+        {days.map(d => {
+          const n = countModuloRows(modulo[d]);
+          return (
+            <button key={d} onClick={() => {setActiveDay(d); setScreen("day");}} style={{background:"white",border:"none",borderRadius:18,padding:"14px 16px",cursor:"pointer",textAlign:"left",boxShadow:"0 2px 10px rgba(180,120,120,0.07)",marginBottom:10,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:500,color:T.text,fontStyle:"italic"}}>{d}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>{n>0 ? n+" annotazioni" : "Da compilare"}{modulo[d]&&modulo[d].data?" · "+modulo[d].data:""}</div>
+              </div>
+              <span style={{color:T.muted,fontSize:20}}>›</span>
+            </button>
+          );
+        })}
+        <button onClick={addDay} style={{width:"100%",background:"none",border:"1.5px dashed "+T.rose,color:T.roseDark,borderRadius:16,padding:"12px",fontSize:15,cursor:"pointer",fontFamily:"'EB Garamond',serif",fontStyle:"italic",marginTop:2}}>+ Aggiungi giorno</button>
+        <div style={{height:24}}/>
+      </div>
+      <Toast show={toast}/>
+    </div>
+  );
+}
+
+// ── MODULO: pagina di registrazione (link dedicato, codice WLpannolino) ──
+function ModuloRegisterPage() {
+  const [nome, setNome] = useState(""), [cognome, setCognome] = useState(""), [email, setEmail] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [saving, setSaving] = useState(false), [err, setErr] = useState("");
+
+  async function handle() {
+    if (!nome.trim() || !cognome.trim() || !email.trim() || !inviteCode.trim()) { setErr("Compila tutti i campi."); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { setErr("Email non valida."); return; }
+    if (inviteCode.trim() !== REGISTER_INVITE_CODE_MODULO) { setErr("Codice invito non valido. Contatta la consulente."); return; }
+    setSaving(true);
+    try {
+      const c = emptyModuloClient(nome.trim()+" "+cognome.trim());
+      c.email = email.trim();
+      c.registeredAt = new Date().toLocaleDateString("it-IT");
+      await saveClient(c);
+      window.location.href = window.location.origin + window.location.pathname + "?client=" + c.link;
+    } catch(e) {
+      setErr("Errore durante la registrazione. Riprova.");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{...S.screen, justifyContent:"center", padding:"32px 28px"}}>
+      <div style={{textAlign:"center",marginBottom:36}}>
+        <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FBF0E6,#EDE8F5)",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(200,144,144,0.18)",fontSize:32}}></div>
+        <div style={S.logo}>with love</div>
+        <h1 style={{fontSize:28,fontWeight:500,color:T.text,marginTop:6,fontStyle:"italic"}}>Diario della giornata</h1>
+        <p style={{marginTop:6,color:T.muted,fontStyle:"italic"}}>Registrati per iniziare</p>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:16,marginBottom:24}}>
+        <div><Lbl>Nome *</Lbl><Inp value={nome} onChange={setNome} placeholder="Il tuo nome..."/></div>
+        <div><Lbl>Cognome *</Lbl><Inp value={cognome} onChange={setCognome} placeholder="Il tuo cognome..."/></div>
+        <div><Lbl>Email *</Lbl><Inp value={email} onChange={setEmail} placeholder="La tua email..."/></div>
+        <div><Lbl>Codice invito *</Lbl><Inp value={inviteCode} onChange={setInviteCode} placeholder="Ricevuto dalla consulente..."/></div>
+        {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
+      </div>
+      <BtnPri onClick={handle} loading={saving}>Accedi al diario</BtnPri>
+      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Il codice invito ti viene fornito dalla consulente</p>
+    </div>
+  );
+}
+
+// ── Schermata accesso scaduto (60 giorni — solo app, non il corso) ──
+function ExpiredScreen() {
+  return (
+    <div style={{...S.screen, justifyContent:"center", padding:"32px 28px", textAlign:"center"}}>
+      <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 18px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>♥</div>
+      <div style={S.logo}>with love</div>
+      <h1 style={{fontSize:24,fontWeight:500,color:T.text,marginTop:8,fontStyle:"italic"}}>Il tuo accesso è terminato</h1>
+      <p style={{marginTop:14,color:T.muted,fontStyle:"italic",lineHeight:1.8}}>
+        Sono passati {APP_ACCESS_DAYS} giorni e l'accesso all'app si è chiuso.<br/>
+        Questo limite riguarda <b>solo l'app</b>: il tuo percorso continua normalmente.<br/>
+        Per qualsiasi cosa, scrivi alla tua consulente. ♥
+      </p>
+    </div>
+  );
+}
+
+// ── APP ROOT ──
 export default function App() {
   const [role, setRole] = useState(null);
   const [clients, setClients] = useState([]);
   const [activeClient, setActiveClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [isRegister, setIsRegister] = useState(false);
+  const [registerMode, setRegisterMode] = useState(null); // "sonno" | "modulo" | null
 
   // FIX 12: Debounce Firestore per evitare scritture ad ogni keystroke
   const debounceTimers = useRef({});
@@ -1129,7 +1544,9 @@ export default function App() {
   useEffect(() => {
     const el = document.createElement("style"); el.textContent = GLOBAL_CSS; document.head.appendChild(el);
     const p = new URLSearchParams(window.location.search);
-    if (p.get("register")==="true") setIsRegister(true);
+    const reg = p.get("register");
+    if (reg==="modulo") setRegisterMode("modulo");
+    else if (reg==="true") setRegisterMode("sonno");
 
     // FIX 1: Ripristina sessione consulente via Firebase Auth
     const unsubAuth = onAuthStateChanged(auth, user => {
@@ -1189,7 +1606,7 @@ export default function App() {
   }
 
   async function handleLogout() {
-    try { await signOut(auth); } catch(e) { /* gi√† disconnesso */ }
+    try { await signOut(auth); } catch(e) { /* già disconnesso */ }
     setRole(null);
     sessionStorage.removeItem("role");
   }
@@ -1211,17 +1628,21 @@ export default function App() {
   // FIX 3: Schermata di errore se Firestore non risponde
   if (loadError) return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#f5ede8",fontFamily:"'EB Garamond',serif",padding:32,textAlign:"center"}}>
-      <div style={{fontSize:36,marginBottom:16}}>‚ö†</div>
+      <div style={{fontSize:36,marginBottom:16}}>⚠</div>
       <div style={{fontSize:18,color:T.text,fontStyle:"italic",marginBottom:8}}>Problema di connessione</div>
       <div style={{fontSize:14,color:T.muted,marginBottom:24}}>{loadError}</div>
       <BtnSm onClick={() => window.location.reload()} color={T.roseDark} style={{fontSize:15,padding:"10px 28px"}}>Ricarica</BtnSm>
     </div>
   );
 
-  if (isRegister) return mobileWrap(<RegisterPage/>);
+  if (registerMode==="modulo") return mobileWrap(<ModuloRegisterPage/>);
+  if (registerMode==="sonno") return mobileWrap(<RegisterPage/>);
   if (!role) return mobileWrap(<LoginScreen clients={clients} onLogin={handleLogin}/>);
   if (role==="client" && activeClient) {
     const fresh = clients.find(c => c.id===activeClient.id) || activeClient;
+    // Accesso app limitato a 60 giorni (solo app, non il corso)
+    if (isExpired(fresh)) return mobileWrap(<ExpiredScreen/>);
+    if ((fresh.type||"sonno")==="modulo") return mobileWrap(<ModuloView client={fresh} onSave={saveClientData}/>);
     return mobileWrap(<ClientView client={fresh} onSave={saveClientData}/>);
   }
   if (role==="consultant") return (
