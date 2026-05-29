@@ -18,8 +18,6 @@ const auth = getAuth(firebaseApp);
 
 // FIX 1: Codice invito per la registrazione pubblica (rimosso CONSULTANT_CODE dal frontend)
 const REGISTER_INVITE_CODE = "wlsleep";
-// Codice invito per la nuova sezione "Diario della giornata" (modulo pannolino)
-const REGISTER_INVITE_CODE_MODULO = "WLpannolino";
 
 // Limite di accesso all'app (solo app, non il corso). Vale per sonno e modulo.
 const APP_ACCESS_DAYS = 60;
@@ -1472,13 +1470,11 @@ function ModuloView({client, onSave, onExit}) {
 // ── MODULO: pagina di registrazione (link dedicato, codice WLpannolino) ──
 function ModuloRegisterPage() {
   const [nome, setNome] = useState(""), [cognome, setCognome] = useState(""), [email, setEmail] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [saving, setSaving] = useState(false), [err, setErr] = useState("");
 
   async function handle() {
-    if (!nome.trim() || !cognome.trim() || !email.trim() || !inviteCode.trim()) { setErr("Compila tutti i campi."); return; }
+    if (!nome.trim() || !cognome.trim() || !email.trim()) { setErr("Compila tutti i campi."); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { setErr("Email non valida."); return; }
-    if (inviteCode.trim() !== REGISTER_INVITE_CODE_MODULO) { setErr("Codice invito non valido. Contatta la consulente."); return; }
     setSaving(true);
     try {
       const c = emptyModuloClient(nome.trim()+" "+cognome.trim());
@@ -1504,11 +1500,10 @@ function ModuloRegisterPage() {
         <div><Lbl>Nome *</Lbl><Inp value={nome} onChange={setNome} placeholder="Il tuo nome..."/></div>
         <div><Lbl>Cognome *</Lbl><Inp value={cognome} onChange={setCognome} placeholder="Il tuo cognome..."/></div>
         <div><Lbl>Email *</Lbl><Inp value={email} onChange={setEmail} placeholder="La tua email..."/></div>
-        <div><Lbl>Codice invito *</Lbl><Inp value={inviteCode} onChange={setInviteCode} placeholder="Ricevuto dalla consulente..."/></div>
         {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
       <BtnPri onClick={handle} loading={saving}>Accedi al diario</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Il codice invito ti viene fornito dalla consulente</p>
+      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Compila i campi per accedere al tuo diario</p>
     </div>
   );
 }
