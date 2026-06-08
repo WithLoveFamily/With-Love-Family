@@ -16,11 +16,12 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
 
-// FIX 1: Codice invito per la registrazione pubblica (rimosso CONSULTANT_CODE dal frontend)
-const REGISTER_INVITE_CODE = "wlsleep";
+// Registrazione libera, senza codice invito, per entrambe le sezioni:
+// sonno (link ?register=true) e diario/pannolino (link ?register=modulo)
 
 // Limite di accesso all'app (solo app, non il corso). Vale per sonno e modulo.
-const APP_ACCESS_DAYS = 60;
+// Scaduti i 6 mesi l'account viene cancellato e al rientro compare il messaggio di fine periodo.
+const APP_ACCESS_MONTHS = 6;
 
 // Modulo "Diario della giornata": giorni di partenza + righe iniziali per giorno
 const MODULO_DEFAULT_DAYS = ["Giorno 1","Giorno 2","Giorno 3"];
@@ -219,7 +220,9 @@ function accessStartMs(client) {
 function isExpired(client) {
   const start = accessStartMs(client);
   if (start == null) return false;
-  return Date.now() > start + APP_ACCESS_DAYS * 86400000;
+  const d = new Date(start);
+  d.setMonth(d.getMonth() + APP_ACCESS_MONTHS);
+  return Date.now() > d.getTime();
 }
 function safeWeek(client, n) {
   const days = n===1 ? DAYS_W1 : DAYS_W2, wk = client["week"+n] || {}, r = {};
@@ -968,16 +971,14 @@ function ProfileScreen({client, onLogout}) {
   );
 }
 
-// ── REGISTER PAGE (FIX 10: codice invito obbligatorio) ──
+// ── REGISTER PAGE (registrazione libera, senza codice invito) ──
 function RegisterPage() {
   const [nome, setNome] = useState(""), [cognome, setCognome] = useState(""), [email, setEmail] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [saving, setSaving] = useState(false), [err, setErr] = useState("");
 
   async function handle() {
-    if (!nome.trim() || !cognome.trim() || !email.trim() || !inviteCode.trim()) { setErr("Compila tutti i campi."); return; }
+    if (!nome.trim() || !cognome.trim() || !email.trim()) { setErr("Compila tutti i campi."); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { setErr("Email non valida."); return; }
-    if (inviteCode.trim() !== REGISTER_INVITE_CODE) { setErr("Codice invito non valido. Contatta la consulente."); return; }
     setSaving(true);
     try {
       const c = emptyClient(nome.trim()+" "+cognome.trim(), "");
@@ -1003,11 +1004,9 @@ function RegisterPage() {
         <div><Lbl>Nome *</Lbl><Inp value={nome} onChange={setNome} placeholder="Il tuo nome..."/></div>
         <div><Lbl>Cognome *</Lbl><Inp value={cognome} onChange={setCognome} placeholder="Il tuo cognome..."/></div>
         <div><Lbl>Email *</Lbl><Inp value={email} onChange={setEmail} placeholder="La tua email..."/></div>
-        <div><Lbl>Codice invito *</Lbl><Inp value={inviteCode} onChange={setInviteCode} placeholder="Ricevuto dalla consulente..."/></div>
         {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
       <BtnPri onClick={handle} loading={saving}>Accedi al tuo diario</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Il codice invito ti viene fornito dalla consulente </p>
     </div>
   );
 }
@@ -1467,7 +1466,7 @@ function ModuloView({client, onSave, onExit}) {
   );
 }
 
-// ── MODULO: pagina di registrazione (link dedicato, codice WLpannolino) ──
+// ── MODULO: pagina di registrazione (link dedicato, accesso libero) ──
 function ModuloRegisterPage() {
   const [nome, setNome] = useState(""), [cognome, setCognome] = useState(""), [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false), [err, setErr] = useState("");
@@ -1503,23 +1502,26 @@ function ModuloRegisterPage() {
         {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
       <BtnPri onClick={handle} loading={saving}>Accedi al diario</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Compila i campi per accedere al tuo diario</p>
     </div>
   );
 }
 
-// ── Schermata accesso scaduto (60 giorni — solo app, non il corso) ──
+// ── Schermata accesso scaduto (6 mesi — solo app, non il corso) ──
 function ExpiredScreen() {
   return (
     <div style={{...S.screen, justifyContent:"center", padding:"32px 28px", textAlign:"center"}}>
       <div style={{width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",margin:"0 auto 18px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>♥</div>
       <div style={S.logo}>with love</div>
-      <h1 style={{fontSize:24,fontWeight:500,color:T.text,marginTop:8,fontStyle:"italic"}}>Il tuo accesso è terminato</h1>
+      <h1 style={{fontSize:24,fontWeight:500,color:T.text,marginTop:8,fontStyle:"italic"}}>Il periodo è terminato</h1>
       <p style={{marginTop:14,color:T.muted,fontStyle:"italic",lineHeight:1.8}}>
-        Sono passati {APP_ACCESS_DAYS} giorni e l'accesso all'app si è chiuso.<br/>
-        Questo limite riguarda <b>solo l'app</b>: il tuo percorso continua normalmente.<br/>
-        Per qualsiasi cosa, scrivi alla tua consulente. ♥
+        Il periodo di accesso all'app è finito e il tuo account è stato chiuso.<br/>
+        Questo riguarda <b>solo l'app</b>, non il tuo percorso.<br/>
+        Se vuoi maggiori informazioni, scrivici pure. ♥
       </p>
+      <a href="mailto:supporto@withlovefamily.it"
+         style={{display:"inline-block",marginTop:24,background:T.roseDark,color:"#fff",textDecoration:"none",padding:"13px 32px",borderRadius:40,fontSize:15,fontStyle:"italic",boxShadow:"0 6px 18px rgba(200,144,144,0.30)"}}>
+        Scrivici un'email
+      </a>
     </div>
   );
 }
@@ -1532,6 +1534,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [registerMode, setRegisterMode] = useState(null); // "sonno" | "modulo" | null
+  const [expiredLink, setExpiredLink] = useState(false);   // link di account scaduto/cancellato
 
   // FIX 12: Debounce Firestore per evitare scritture ad ogni keystroke
   const debounceTimers = useRef({});
@@ -1552,7 +1555,15 @@ export default function App() {
 
     // FIX 3: Mostra errore se Firestore non risponde
     loadClients()
-      .then(c => { setClients(c); setLoading(false); })
+      .then(c => {
+        // Pulizia attiva: gli account oltre i 6 mesi vengono cancellati da Firestore
+        // anche se la cliente non rientra (così non occupano spazio).
+        const expired = c.filter(isExpired);
+        const active = c.filter(x => !isExpired(x));
+        setClients(active);
+        setLoading(false);
+        expired.forEach(e => { removeClient(e.id).catch(() => {}); });
+      })
       .catch(e => { setLoadError("Errore di connessione. Controlla la rete e ricarica."); setLoading(false); });
 
     return () => unsubAuth();
@@ -1561,8 +1572,23 @@ export default function App() {
   useEffect(() => {
     if (!loading) {
       const p = new URLSearchParams(window.location.search), cl = p.get("client");
-      if (cl) { const found = clients.find(c => c.link===cl); if (found) { setActiveClient(found); setRole("client"); } }
+      if (cl) {
+        const found = clients.find(c => c.link===cl);
+        if (found) {
+          if (isExpired(found)) {
+            // 6 mesi passati: cancella l'account e mostra il messaggio di fine periodo
+            setExpiredLink(true);
+            deleteClient(found.id);
+          } else {
+            setActiveClient(found); setRole("client");
+          }
+        } else {
+          // link di un account già scaduto e cancellato: mostra comunque il messaggio
+          setExpiredLink(true);
+        }
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, clients]);
 
   async function addClient(n, p) {
@@ -1632,6 +1658,7 @@ export default function App() {
 
   if (registerMode==="modulo") return mobileWrap(<ModuloRegisterPage/>);
   if (registerMode==="sonno") return mobileWrap(<RegisterPage/>);
+  if (expiredLink) return mobileWrap(<ExpiredScreen/>);
   if (!role) return mobileWrap(<LoginScreen clients={clients} onLogin={handleLogin}/>);
   if (role==="client" && activeClient) {
     const fresh = clients.find(c => c.id===activeClient.id) || activeClient;
