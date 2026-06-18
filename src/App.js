@@ -238,6 +238,20 @@ async function loadClients() {
 async function saveClient(c) { await setDoc(doc(db, "clients", c.id), c); }
 async function removeClient(id) { await deleteDoc(doc(db, "clients", id)); }
 
+// ── Identità cliente: niente login, ci si riaggancia tramite email ──
+// Chiave localStorage dove ricordiamo l'ultimo diario aperto su QUESTO dispositivo,
+// così riaprendo il sito (senza ?client) la cliente rientra da sola.
+const LS_CLIENT_LINK = "wlf_client_link";
+function normEmail(e) { return (e || "").trim().toLowerCase(); }
+// Cerca un cliente già esistente con la stessa email e dello stesso tipo (sonno/modulo),
+// ignorando gli account scaduti. Serve a NON creare doppioni a ogni registrazione.
+async function findClientByEmail(email, type) {
+  const e = normEmail(email);
+  if (!e) return null;
+  const all = await loadClients();
+  return all.find(c => normEmail(c.email) === e && (c.type || "sonno") === (type || "sonno") && !isExpired(c)) || null;
+}
+
 async function downloadPDF(client) {
   try {
     if (!window.jspdf) await new Promise((res, rej) => {
@@ -981,10 +995,18 @@ function RegisterPage() {
     if (!/\S+@\S+\.\S+/.test(email)) { setErr("Email non valida."); return; }
     setSaving(true);
     try {
+      // Se esiste già un diario con questa email, NON crearne uno nuovo: riaggancia a quello.
+      const existing = await findClientByEmail(email, "sonno");
+      if (existing) {
+        try { localStorage.setItem(LS_CLIENT_LINK, existing.link); } catch(e2) {}
+        window.location.href = window.location.origin + window.location.pathname + "?client=" + existing.link;
+        return;
+      }
       const c = emptyClient(nome.trim()+" "+cognome.trim(), "");
       c.email = email.trim();
       c.registeredAt = new Date().toLocaleDateString("it-IT");
       await saveClient(c);
+      try { localStorage.setItem(LS_CLIENT_LINK, c.link); } catch(e2) {}
       window.location.href = window.location.origin + window.location.pathname + "?client=" + c.link;
     } catch(e) {
       setErr("Errore durante la registrazione. Riprova.");
@@ -1017,11 +1039,26 @@ function LoginScreen({onLogin, clients}) {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  // Rientro cliente tramite email (utile da un altro telefono/computer)
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientErr, setClientErr] = useState("");
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search), cl = p.get("client");
     if (cl) { const found = clients.find(c => c.link===cl); if (found) onLogin("client", found); }
   }, [clients]);
+
+  function handleClientEntry() {
+    const e = normEmail(clientEmail);
+    if (!e) { setClientErr("Inserisci la tua email."); return; }
+    const found = clients.find(c => normEmail(c.email)===e && !isExpired(c));
+    if (found) {
+      try { localStorage.setItem(LS_CLIENT_LINK, found.link); } catch(e2) {}
+      window.location.href = window.location.origin + window.location.pathname + "?client=" + found.link;
+    } else {
+      setClientErr("Non troviamo un diario con questa email. Controlla di aver scritto la stessa email usata in fase di registrazione.");
+    }
+  }
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) { setErr("Inserisci email e password."); return; }
@@ -1050,7 +1087,19 @@ function LoginScreen({onLogin, clients}) {
         {err && <p style={{color:T.roseDark,fontSize:14,textAlign:"center",fontStyle:"italic"}}>{err}</p>}
       </div>
       <BtnPri onClick={handleLogin} loading={loading}>Accedi al pannello</BtnPri>
-      <p style={{textAlign:"center",marginTop:16,fontSize:13,color:T.muted,fontStyle:"italic"}}>Le clienti accedono tramite il loro link personale </p>
+
+      <div style={{display:"flex",alignItems:"center",gap:12,margin:"26px 0 18px"}}>
+        <div style={{flex:1,height:1,background:T.pink}}/>
+        <span style={{fontSize:12,color:T.muted,fontStyle:"italic"}}>oppure</span>
+        <div style={{flex:1,height:1,background:T.pink}}/>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <p style={{textAlign:"center",fontSize:13,color:T.muted,fontStyle:"italic",margin:0}}>Hai già un diario? Rientra con la tua email.</p>
+        <div><Lbl>La tua email</Lbl><Inp value={clientEmail} onChange={setClientEmail} placeholder="L'email della registrazione..."/></div>
+        {clientErr && <p style={{color:T.roseDark,fontSize:13,textAlign:"center",fontStyle:"italic"}}>{clientErr}</p>}
+        <BtnSm onClick={handleClientEntry} color={T.roseDark} style={{fontSize:14,padding:"11px 0",borderRadius:40}}>Rientra nel mio diario</BtnSm>
+      </div>
     </div>
   );
 }
@@ -1476,10 +1525,18 @@ function ModuloRegisterPage() {
     if (!/\S+@\S+\.\S+/.test(email)) { setErr("Email non valida."); return; }
     setSaving(true);
     try {
+      // Se esiste già un diario con questa email, NON crearne uno nuovo: riaggancia a quello.
+      const existing = await findClientByEmail(email, "modulo");
+      if (existing) {
+        try { localStorage.setItem(LS_CLIENT_LINK, existing.link); } catch(e2) {}
+        window.location.href = window.location.origin + window.location.pathname + "?client=" + existing.link;
+        return;
+      }
       const c = emptyModuloClient(nome.trim()+" "+cognome.trim());
       c.email = email.trim();
       c.registeredAt = new Date().toLocaleDateString("it-IT");
       await saveClient(c);
+      try { localStorage.setItem(LS_CLIENT_LINK, c.link); } catch(e2) {}
       window.location.href = window.location.origin + window.location.pathname + "?client=" + c.link;
     } catch(e) {
       setErr("Errore durante la registrazione. Riprova.");
@@ -1570,22 +1627,37 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!loading) {
-      const p = new URLSearchParams(window.location.search), cl = p.get("client");
-      if (cl) {
-        const found = clients.find(c => c.link===cl);
-        if (found) {
-          if (isExpired(found)) {
-            // 6 mesi passati: cancella l'account e mostra il messaggio di fine periodo
-            setExpiredLink(true);
-            deleteClient(found.id);
-          } else {
-            setActiveClient(found); setRole("client");
-          }
-        } else {
-          // link di un account già scaduto e cancellato: mostra comunque il messaggio
+    if (loading) return;
+    const p = new URLSearchParams(window.location.search);
+    const cl = p.get("client");
+    if (cl) {
+      const found = clients.find(c => c.link===cl);
+      if (found) {
+        if (isExpired(found)) {
+          // 6 mesi passati: cancella l'account e mostra il messaggio di fine periodo
           setExpiredLink(true);
+          deleteClient(found.id);
+          try { if (localStorage.getItem(LS_CLIENT_LINK)===cl) localStorage.removeItem(LS_CLIENT_LINK); } catch(e) {}
+        } else {
+          setActiveClient(found); setRole("client");
+          // Ricorda questo diario su questo dispositivo per il rientro automatico.
+          try { localStorage.setItem(LS_CLIENT_LINK, found.link); } catch(e) {}
         }
+      } else {
+        // link di un account già scaduto e cancellato: mostra comunque il messaggio
+        setExpiredLink(true);
+        try { if (localStorage.getItem(LS_CLIENT_LINK)===cl) localStorage.removeItem(LS_CLIENT_LINK); } catch(e) {}
+      }
+      return;
+    }
+    // Nessun ?client nell'URL: se questo dispositivo ha già aperto un diario, rientra da solo.
+    if (!role && !p.get("register")) {
+      let saved = null;
+      try { saved = localStorage.getItem(LS_CLIENT_LINK); } catch(e) {}
+      if (saved) {
+        const found = clients.find(c => c.link===saved);
+        if (found && !isExpired(found)) { setActiveClient(found); setRole("client"); }
+        else { try { localStorage.removeItem(LS_CLIENT_LINK); } catch(e) {} }
       }
     }
   }, [loading, clients]);
