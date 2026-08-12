@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { TIPS_SEZIONI, TIPS_INTRO } from "./tipsPreConsulenza";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD2-KeCRUKY-REdevBFKO1J3x3bmN6zw78",
@@ -22,6 +23,22 @@ const auth = getAuth(firebaseApp);
 // Limite di accesso all'app (solo app, non il corso). Vale per sonno e modulo.
 // Scaduti i 6 mesi l'account viene cancellato e al rientro compare il messaggio di fine periodo.
 const APP_ACCESS_MONTHS = 6;
+
+// Contratto di consulenza (solo sezione sonno): PDF compilabile ospitato a parte.
+// Se il contratto cambia lì, cambia da solo anche qui — nessuna copia da riallineare.
+const CONTRATTO_URL = "https://contratto-with-love.vercel.app/contratto-with-love-compilabile.pdf";
+const CONTRATTO_EMAIL = "hello@withlovefamily.it";
+// Le quattro voci della sezione sonno, nell'ordine in cui la cliente le incontra.
+// Una sola lista per il pannello consulente e per l'app della cliente.
+// TIPS sta su una riga sua, larga: cinque voci a due colonne lascerebbero
+// una voce spaiata in fondo.
+const TABS_SONNO = [
+  {id:"contratto", label:"Contratto"},
+  {id:"q",         label:"Questionario"},
+  {id:"tips",      label:"Tips",        larga:true},
+  {id:"w1",        label:"Settimana 1"},
+  {id:"w2",        label:"Settimana 2"}
+];
 
 // Modulo "Diario della giornata": giorni di partenza + righe iniziali per giorno
 const MODULO_DEFAULT_DAYS = ["Giorno 1","Giorno 2","Giorno 3"];
@@ -165,6 +182,15 @@ function emptyQuestionario() { const q={}; QUESTIONARIO_SEZIONI.forEach(s=>s.cam
 // FIX 2: Usa crypto.randomUUID() invece di Date.now() per evitare collisioni
 function genId() {
   try { return crypto.randomUUID(); } catch { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+}
+
+// Data di oggi in ora italiana: le clienti sono in Italia, il computer non sempre.
+function oggiIT() {
+  try {
+    return new Date().toLocaleDateString("it-IT", {timeZone:"Europe/Rome", day:"2-digit", month:"2-digit", year:"numeric"});
+  } catch {
+    return new Date().toLocaleDateString("it-IT");
+  }
 }
 
 function emptyClient(name, papa) {
@@ -758,6 +784,201 @@ function QField({label, value, onChange, tipo, readOnly}) {
   );
 }
 
+// ── TIPS — Informazioni pre consulenza ──
+// Testi in src/tipsPreConsulenza.js: qui si impagina soltanto.
+// Sezioni richiudibili: su telefono sono 13 pagine di PDF, tutte aperte
+// sarebbero un muro di scorrimento.
+function BloccoTips({b}) {
+  if (b.tipo==="p")
+    return <p style={{fontSize:16,lineHeight:1.62,color:T.text,marginBottom:14}}>{b.t}</p>;
+
+  if (b.tipo==="h3")
+    return <div style={{fontSize:17,fontWeight:600,fontStyle:"italic",color:T.roseDark,margin:"20px 0 10px"}}>{b.t}</div>;
+
+  if (b.tipo==="forte")
+    return (
+      <div style={{background:T.mint,borderRadius:14,padding:"14px 16px",margin:"6px 0 16px",
+        fontSize:16,lineHeight:1.55,color:T.text,fontStyle:"italic"}}>{b.t}</div>
+    );
+
+  if (b.tipo==="nota")
+    return (
+      <div style={{borderLeft:"2.5px solid "+T.sage,paddingLeft:12,margin:"4px 0 16px",
+        fontSize:14.5,lineHeight:1.55,color:T.muted,fontStyle:"italic"}}>{b.t}</div>
+    );
+
+  if (b.tipo==="lista")
+    return (
+      <div style={{margin:"2px 0 16px"}}>
+        {b.voci.map((v, i) => (
+          <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:9}}>
+            <span style={{flexShrink:0,marginTop:b.numerata?0:7,
+              ...(b.numerata
+                ? {fontSize:15,color:T.roseDark,minWidth:16}
+                : {width:6,height:6,borderRadius:"50%",background:T.rose,display:"block"})}}>
+              {b.numerata ? (i+1)+"." : ""}
+            </span>
+            <span style={{fontSize:16,lineHeight:1.55,color:T.text}}>{v}</span>
+          </div>
+        ))}
+      </div>
+    );
+
+  if (b.tipo==="voce")
+    return (
+      <div style={{borderLeft:"2.5px solid "+T.rose,paddingLeft:14,margin:"0 0 18px"}}>
+        <div style={{fontSize:16.5,fontWeight:600,fontStyle:"italic",color:T.text,marginBottom:5}}>{b.titolo}</div>
+        {b.righe.map((r, i) => (
+          <div key={i} style={{fontSize:15,lineHeight:1.55,color:T.muted,marginBottom:3}}>{r}</div>
+        ))}
+      </div>
+    );
+
+  // Su telefono una tabella a quattro colonne si taglia: una scheda per
+  // fascia d'età, così non si scorre mai di lato.
+  if (b.tipo==="tabella")
+    return (
+      <div style={{margin:"4px 0 16px"}}>
+        {b.righe.map((r, i) => (
+          <div key={i} style={{background:T.peach,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
+            <div style={{fontSize:16,fontWeight:600,fontStyle:"italic",color:T.text,marginBottom:8}}>{r[0]}</div>
+            {r.slice(1).map((c, j) => (
+              <div key={j} style={{display:"flex",gap:10,alignItems:"baseline",
+                marginBottom:j<r.length-2?5:0}}>
+                <span style={{fontSize:11.5,textTransform:"uppercase",letterSpacing:"0.5px",
+                  color:T.muted,minWidth:96,flexShrink:0}}>{b.intestazioni[j+1]}</span>
+                <span style={{fontSize:15,color:T.text,lineHeight:1.45}}>{c}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+
+  if (b.tipo==="faq")
+    return (
+      <div style={{background:T.lavender,borderRadius:16,padding:"14px 16px",marginBottom:12}}>
+        <div style={{fontSize:16,fontWeight:600,fontStyle:"italic",color:T.text,marginBottom:7}}>{b.d}</div>
+        <div style={{fontSize:15.5,lineHeight:1.58,color:T.text}}>{b.r}</div>
+      </div>
+    );
+
+  if (b.tipo==="firma")
+    return (
+      <div style={{textAlign:"center",margin:"22px 0 4px"}}>
+        {b.t.split("\n").map((r, i) => (
+          <div key={i} style={{fontSize:16,color:T.text,fontStyle:"italic",marginBottom:2}}>{r}</div>
+        ))}
+        <div style={{fontSize:18,color:T.roseDark,fontStyle:"italic",marginTop:8}}>{b.nome}</div>
+      </div>
+    );
+
+  return null;
+}
+
+function TipsPanel() {
+  const [aperta, setAperta] = useState(TIPS_SEZIONI[0].id);
+  return (
+    <div>
+      <Card style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",marginBottom:14,textAlign:"center"}}>
+        <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>
+          Da leggere prima della consulenza
+        </div>
+        <div style={{fontSize:19,fontStyle:"italic",color:T.text,marginBottom:8}}>Informazioni pre consulenza</div>
+        <div style={{fontSize:14.5,lineHeight:1.5,color:"#7c6a66"}}>{TIPS_INTRO}</div>
+      </Card>
+
+      {TIPS_SEZIONI.map(sez => {
+        const on = aperta===sez.id;
+        return (
+          <Card key={sez.id} style={{marginBottom:10,padding:0,overflow:"hidden"}}>
+            <button onClick={() => setAperta(on ? null : sez.id)}
+              style={{display:"flex",alignItems:"center",gap:10,width:"100%",textAlign:"left",cursor:"pointer",
+                background:"none",border:"none",padding:"15px 16px",fontFamily:"'EB Garamond',serif"}}>
+              <span style={{flex:1,fontSize:16.5,fontWeight:500,fontStyle:"italic",
+                color:on?T.roseDark:T.text}}>{sez.titolo}</span>
+              <span style={{color:T.muted,fontSize:18,flexShrink:0,
+                transform:on?"rotate(90deg)":"none",transition:"transform 0.2s"}}>›</span>
+            </button>
+            {on && (
+              <div style={{padding:"2px 16px 16px",borderTop:"1px solid "+T.border}}>
+                <div style={{height:12}}/>
+                {sez.blocchi.map((b, i) => <BloccoTips key={i} b={b}/>)}
+              </div>
+            )}
+          </Card>
+        );
+      })}
+      <div style={{height:16}}/>
+    </div>
+  );
+}
+
+// ── CONTRATTO (solo sezione sonno) ──
+// Blocco riusato identico dal pannello consulente e dall'app della cliente:
+// cambia solo il modo di rivolgersi a chi legge.
+function ContrattoPanel({firmato, firmatoIl, onToggle, isConsultant}) {
+  const passi = [
+    {n:"1", t:"Scarica il contratto", sub:"È un PDF compilabile"},
+    {n:"2", t:"Compilalo e firmalo dove indicato", sub:"Si compila dal telefono o dal computer, senza stamparlo"},
+    {n:"3", t:"Rimandalo a "+CONTRATTO_EMAIL, sub:null, mail:true}
+  ];
+  return (
+    <div>
+      <Card style={{background:"linear-gradient(135deg,#FBF0E6,#FAE8E6)",marginBottom:14,textAlign:"center"}}>
+        <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>
+          {isConsultant ? "Consulenza sonno" : "Prima di iniziare"}
+        </div>
+        <div style={{fontSize:19,fontStyle:"italic",color:T.text,marginBottom:16}}>
+          {isConsultant ? "Contratto di consulenza" : "Il tuo contratto"}
+        </div>
+        <a href={CONTRATTO_URL} target="_blank" rel="noopener noreferrer"
+          style={{display:"block",background:"linear-gradient(135deg,#E8A8A0,#C89090)",color:"#fff",textDecoration:"none",
+            borderRadius:28,padding:"13px 24px",fontSize:16,fontWeight:500,textAlign:"center",
+            boxShadow:"0 4px 16px rgba(200,144,144,0.3)"}}>
+          ↓  Scarica il contratto
+        </a>
+      </Card>
+
+      <Card style={{marginBottom:14}}>
+        <Lbl>Come funziona</Lbl>
+        {passi.map((p, i) => (
+          <div key={p.n} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:i<passi.length-1?13:0}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:T.peach,color:T.roseDark,flexShrink:0,
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,marginTop:1}}>{p.n}</div>
+            <div style={{fontSize:15,lineHeight:1.5,color:T.text}}>
+              {p.mail
+                ? <span>Rimandalo a <a href={"mailto:"+CONTRATTO_EMAIL} style={{color:T.roseDark,textDecoration:"none",borderBottom:"1px solid rgba(196,120,120,0.35)"}}>{CONTRATTO_EMAIL}</a></span>
+                : p.t}
+              {p.sub && <div style={{color:T.muted,fontSize:13.5,marginTop:2}}>{p.sub}</div>}
+            </div>
+          </div>
+        ))}
+      </Card>
+
+      <button onClick={onToggle}
+        style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",cursor:"pointer",
+          background:T.card,border:"none",borderRadius:18,padding:"14px 16px",fontFamily:"'EB Garamond',serif",
+          boxShadow:"0 2px 12px rgba(180,120,120,0.07)"}}>
+        <div style={{width:26,height:26,borderRadius:9,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:15,color:"#fff",background:firmato?T.green:"transparent",
+          border:"2px solid "+(firmato?T.green:"#dfc9c4")}}>{firmato ? "✓" : ""}</div>
+        <div>
+          <div style={{fontSize:16,fontWeight:500,fontStyle:"italic",color:T.text}}>
+            {isConsultant ? "Contratto firmato" : "L'ho firmato"}
+          </div>
+          <div style={{fontSize:12.5,color:T.muted}}>
+            {firmato
+              ? "Firmato il " + (firmatoIl || oggiIT())
+              : (isConsultant ? "Non ancora firmato" : "Spunta quando l'hai firmato e rimandato")}
+          </div>
+        </div>
+      </button>
+      <div style={{height:16}}/>
+    </div>
+  );
+}
+
 function QuestionarioView({questionario, onChange, readOnly, onBack, onPDF}) {
   return (
     <div className="slide-enter" style={S.screen}>
@@ -792,6 +1013,8 @@ function ClientView({client, onSave}) {
   const [data, setData] = useState({week1:safeWeek(client,1), week2:safeWeek(client,2)});
   const [questionario, setQuestionario] = useState(client.questionario || emptyQuestionario());
   const [toast, setToast] = useState(false);
+  const [contrattoFirmato, setContrattoFirmato] = useState(!!client.contrattoFirmato);
+  const [contrattoFirmatoIl, setContrattoFirmatoIl] = useState(client.contrattoFirmatoIl || "");
 
   // FIX 8: Auto-save con debounce — usa ref per leggere i valori aggiornati nel timer
   const dataRef = useRef(data);
@@ -834,6 +1057,20 @@ function ClientView({client, onSave}) {
     setTimeout(() => setToast(false), 2200);
   }
 
+  // La spunta del contratto si salva subito: è un gesto singolo, non una compilazione.
+  async function toggleContratto() {
+    const on = !contrattoFirmato;
+    const quando = on ? oggiIT() : "";
+    setContrattoFirmato(on); setContrattoFirmatoIl(quando);
+    try {
+      await onSave({contrattoFirmato: on, contrattoFirmatoIl: quando});
+      setToast(true);
+      setTimeout(() => setToast(false), 2200);
+    } catch(e) {
+      console.error("Salvataggio contratto fallito:", e);
+    }
+  }
+
   if (screen==="table") return (
     <div style={S.screen}>
       <div style={S.navTop}>
@@ -867,7 +1104,9 @@ function ClientView({client, onSave}) {
           <HomeScreen client={client} data={data}
             onDay={(d,w) => {setActiveDay(d);setActiveWeek(w);setScreen("day");}}
             onTable={w => {setTableWeek(w);setScreen("table");}}
-            onQuestionario={() => setScreen("questionario")}/>
+            onQuestionario={() => setScreen("questionario")}
+            contrattoFirmato={contrattoFirmato} contrattoFirmatoIl={contrattoFirmatoIl}
+            onToggleContratto={toggleContratto}/>
         )}
         {screen==="profilo" && (
           <ProfileScreen client={client} onLogout={() => {sessionStorage.removeItem("role");window.location.reload();}}/>
@@ -880,8 +1119,9 @@ function ClientView({client, onSave}) {
 }
 
 // ── HOME SCREEN ──
-function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
-  const [week, setWeek] = useState(1);
+function HomeScreen({client, data, onDay, onTable, onQuestionario, contrattoFirmato, contrattoFirmatoIl, onToggleContratto}) {
+  const [tab, setTab] = useState("contratto");
+  const week = tab==="w2" ? 2 : 1;
   const days = week===1 ? DAYS_W1 : DAYS_W2;
   const wkData = data["week"+week];
   const total = SECTIONS.reduce((a,s) => a+s.fields.length, 0);
@@ -899,15 +1139,27 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
         <div style={{width:38}}/>
       </div>
       <div style={S.body}>
-        <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"flex",gap:4,marginBottom:18}}>
-          {[1,2].map(w => <button key={w} onClick={() => setWeek(w)} style={{flex:1,padding:"8px",borderRadius:12,border:"none",fontSize:15,cursor:"pointer",background:week===w?"white":"none",color:week===w?T.roseDark:T.muted,boxShadow:week===w?"0 2px 8px rgba(180,120,120,0.12)":"none",transition:"all 0.2s"}}>Settimana {w}</button>)}
+        {/* Stesse quattro voci del pannello consulente, stesso ordine, su due file */}
+        <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:18}}>
+          {TABS_SONNO.map(t => (
+            <button key={t.id} onClick={() => { if (t.id==="q") onQuestionario(); else setTab(t.id); }}
+              style={{gridColumn:t.larga?"1 / -1":"auto",padding:"9px 4px",borderRadius:12,border:"none",fontSize:15,cursor:"pointer",fontFamily:"'EB Garamond',serif",background:tab===t.id?"white":"none",color:tab===t.id?T.roseDark:T.muted,boxShadow:tab===t.id?"0 2px 8px rgba(180,120,120,0.12)":"none",transition:"all 0.2s"}}>
+              {t.label}
+            </button>
+          ))}
         </div>
+        {tab==="contratto" ? (
+          <ContrattoPanel isConsultant={false}
+            firmato={contrattoFirmato} firmatoIl={contrattoFirmatoIl} onToggle={onToggleContratto}/>
+        ) : tab==="tips" ? (
+          <TipsPanel/>
+        ) : (
+        <>
         <Card style={{background:"linear-gradient(135deg,#FAE8E6,#EDE8F5)",marginBottom:18}}>
           <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:6}}>Settimana {week} · Riepilogo</div>
           <div style={{fontSize:15,color:T.text,fontStyle:"italic",marginBottom:14}}>Tieni traccia di ogni giornata del tuo piccolo </div>
           <div style={{display:"flex",gap:8}}>
             <BtnSm onClick={() => onTable(week)} color={T.roseDark} style={{flex:1,fontSize:13}}>Vista tabella</BtnSm>
-            <BtnSm onClick={onQuestionario} color={T.lilac} style={{flex:1,fontSize:13}}>Questionario</BtnSm>
           </div>
         </Card>
         <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}}>Seleziona un giorno</div>
@@ -936,6 +1188,8 @@ function HomeScreen({client, data, onDay, onTable, onQuestionario}) {
             </button>
           );
         })}
+        </>
+        )}
         <div style={{height:20}}/>
       </div>
     </div>
@@ -1109,7 +1363,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
   const [view, setView] = useState("list");
   const [selected, setSelected] = useState(null);
   const [newName, setNewName] = useState(""), [newPapa, setNewPapa] = useState("");
-  const [tab, setTab] = useState("w1");
+  const [tab, setTab] = useState("contratto");
   const [activeDay, setActiveDay] = useState(DAYS_W1[0]);
   const [activeSection, setActiveSection] = useState(null);
   const [saved, setSaved] = useState(false);
@@ -1138,7 +1392,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
 
   function openClient(c) {
     const fresh = clients.find(x => x.id===c.id) || c;
-    setSelected(fresh); setTab("w1"); setActiveDay(DAYS_W1[0]); setActiveSection(null); setView("detail");
+    setSelected(fresh); setTab("contratto"); setActiveDay(DAYS_W1[0]); setActiveSection(null); setView("detail");
   }
   function openTable(c) {
     const fresh = clients.find(x => x.id===c.id) || c;
@@ -1207,7 +1461,7 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
     return consultantWrapper(
       <QuestionarioView questionario={questionario}
         onChange={(k,v) => onUpdateClient({...client, questionario:{...questionario,[k]:v}}, false)}
-        readOnly={false} onBack={() => setTab("w1")} onPDF={async () => await downloadPDF(client)}/>
+        readOnly={false} onBack={() => setTab("contratto")} onPDF={async () => await downloadPDF(client)}/>
     );
   }
 
@@ -1235,14 +1489,26 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
             <div style={{fontSize:12,color:T.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}> {baseUrl}?client={client.link}</div>
             <BtnSm onClick={() => navigator.clipboard && navigator.clipboard.writeText(baseUrl+"?client="+client.link)} color={T.roseDark} style={{fontSize:12}}>Copia</BtnSm>
           </Card>
-          <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"flex",gap:4,marginBottom:16}}>
-            {[{id:"w1",label:"Settimana 1"},{id:"w2",label:"Settimana 2"},{id:"q",label:"Questionario"}].map(t => (
+          {/* Quattro voci su due file: in fila starebbero strette e illeggibili */}
+          <div style={{background:"#F5EDEB",borderRadius:16,padding:4,display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:16}}>
+            {TABS_SONNO.map(t => (
               <button key={t.id} onClick={() => { setTab(t.id); if(t.id==="w1")setActiveDay(DAYS_W1[0]); if(t.id==="w2")setActiveDay(DAYS_W2[0]); }}
-                style={{flex:1,padding:"8px 4px",borderRadius:12,border:"none",fontSize:14,cursor:"pointer",background:tab===t.id?"white":"none",color:tab===t.id?T.roseDark:T.muted,boxShadow:tab===t.id?"0 2px 8px rgba(180,120,120,0.12)":"none"}}>
+                style={{gridColumn:t.larga?"1 / -1":"auto",padding:"9px 4px",borderRadius:12,border:"none",fontSize:14,cursor:"pointer",fontFamily:"'EB Garamond',serif",background:tab===t.id?"white":"none",color:tab===t.id?T.roseDark:T.muted,boxShadow:tab===t.id?"0 2px 8px rgba(180,120,120,0.12)":"none"}}>
                 {t.label}
               </button>
             ))}
           </div>
+          {tab==="contratto" ? (
+            <ContrattoPanel isConsultant={true}
+              firmato={!!client.contrattoFirmato} firmatoIl={client.contrattoFirmatoIl}
+              onToggle={() => {
+                const on = !client.contrattoFirmato;
+                onUpdateClient({...client, contrattoFirmato:on, contrattoFirmatoIl: on ? oggiIT() : ""}, true);
+              }}/>
+          ) : tab==="tips" ? (
+            <TipsPanel/>
+          ) : (
+          <>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
             {days.map(d => <button key={d} onClick={() => setActiveDay(d)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:13,background:activeDay===d?T.roseDark:"#F5EDEB",color:activeDay===d?"white":T.text}}>{d}</button>)}
           </div>
@@ -1260,6 +1526,8 @@ function ConsultantView({clients, onAddClient, onUpdateClient, onDeleteClient, o
           <div style={{marginTop:16}}>
             <BtnPri onClick={handleSave}>{saved?"✓ Salvato!":"Salva modifiche"}</BtnPri>
           </div>
+          </>
+          )}
           <div style={{height:24}}/>
         </div>
         <Toast show={toast}/>
